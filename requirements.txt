@@ -1,8 +1,7 @@
 streamlit
 pandas
-matplotlib.pyplot
+matplotlib
 numpy
 seaborn
 adjustText
-matplotlib.ticker
 datetime
