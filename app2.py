@@ -313,3 +313,17 @@ ax.legend(ordered_handles, ordered_labels, title="Estado", bbox_to_anchor=(1.01,
 ax.xaxis.set_major_formatter(lambda x, _: f'{int(x)}%')
 
 graph_placeholder.pyplot(fig)
+
+#Filtrar solo los rojos
+df_red = df[df["color"] == "red"]
+
+# Ordenar de menor a mayor batería
+df_red_sorted = df_red.sort_values("bateria", ascending=True)
+
+# Mantener solo identificador y batería (o más columnas si quieres)
+df_red_sorted = df_red_sorted[["identificador", "bateria"]].reset_index(drop=True)
+df_red_sorted["bateria"] = df_red_sorted["bateria"] * 100
+
+# Mostrar en Streamlit como tabla
+st.subheader(f"Baterias con ultimo reporte de 1 día o más \n (menor → mayor)")
+st.dataframe(df_red_sorted)
