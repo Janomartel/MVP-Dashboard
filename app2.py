@@ -11,8 +11,6 @@ import datetime
 # Dashboard Permacultura Tech
 # =========================
 
-
-
 # ----------------------
 # Título
 # ----------------------
@@ -111,6 +109,35 @@ df_filtered = df_show[
     (df_show["Fecha"] >= start_date_input) & 
     (df_show["Fecha"] <= end_date_input)
 ]
+# =========================
+# Generar eventos recurrentes (~cada 2 semanas)
+# =========================
+tipos_eventos = ["Riego", "Fertilización", "Planificación de riego"]
+markers = {"Riego": "o", "Fertilización": "s", "Planificación de riego": "^"}
+colors = {"Riego": "blue", "Fertilización": "green", "Planificación de riego": "purple"}
+
+# Crear fechas cada 14 días en el rango
+rango_fechas = pd.date_range(start=start_date_input, end=end_date_input, freq="14D")
+
+eventos = []
+for fecha in rango_fechas:
+    for tipo in tipos_eventos:
+        # Buscar la fila de df_filtered más cercana a la fecha
+        fila = df_filtered.iloc[(df_filtered["Fecha"] - fecha).abs().argsort()[:1]]
+        fila = fila.copy()
+        fila["Tipo"] = tipo
+        eventos.append(fila)
+
+df_eventos = pd.concat(eventos).reset_index(drop=True)
+
+# =========================
+# Selector de eventos
+# =========================
+selected_eventos = st.multiselect(
+    "Selecciona eventos a mostrar:",
+    options=tipos_eventos,
+    default=tipos_eventos  # por defecto todos
+)
 
 # =========================
 # Gráfico
@@ -126,27 +153,29 @@ df_future = df_filtered[df_filtered["Fecha"] > today]
 
 fig, ax = plt.subplots()
 
-# Histórico
+# Combinar todo
+df_plot = df_filtered.sort_values("Fecha")
+
+fig, ax = plt.subplots()
+
+# Línea histórica + futura, estilo según fecha
 sns.lineplot(
-    data=df_past, 
+    data=df_plot, 
     x="Fecha", 
     y=selected_var, 
     ax=ax, 
-    color="blue", 
-    label="Histórico"
+    color="blue"
 )
 
-# Proyección
-if not df_future.empty:
-    sns.lineplot(
-        data=df_future, 
-        x="Fecha", 
-        y=selected_var, 
-        ax=ax, 
-        color="orange", 
-        linestyle="--", 
-        label="Proyección"
-    )
+# Línea punteada para proyección solo para el visual
+sns.lineplot(
+    data=df_plot[df_plot["Fecha"] > today],
+    x="Fecha", 
+    y=selected_var, 
+    ax=ax, 
+    color="orange", 
+    linestyle="--"
+)
 
 # Calcular min y max de la variable seleccionada
 ymin = df_filtered[selected_var].min()
@@ -156,6 +185,14 @@ ymax = df_filtered[selected_var].max()
 ax.axhline(y=ymin, color="red", linestyle="--", linewidth=1, label=f"Mínimo ({ymin:.2f})")
 ax.axhline(y=ymax, color="red", linestyle="--", linewidth=1, label=f"Máximo ({ymax:.2f})")
 
+# =========================
+# Graficar eventos filtrados
+# =========================
+for _, ev in df_eventos[df_eventos["Tipo"].isin(selected_eventos)].iterrows():
+    ax.scatter(ev["Fecha"], ev[selected_var],
+               color=colors[ev["Tipo"]], marker=markers[ev["Tipo"]],
+               s=70, label=ev["Tipo"])
+    
 # Títulos y formato
 ax.set_title(f"Gráfico de {selected_var}")
 ax.set_xlabel("Fecha")
@@ -242,11 +279,15 @@ df["color"] = diff.apply(asignar_color)
 st.subheader("Estado sensores")
 graph_placeholder = st.empty()
 
+# Crear columna en porcentaje para graficar
+df["Porcentaje de bateria"] = df["bateria"] * 100
+
+# --- Gráfico en Streamlit ---
 fig, ax = plt.subplots()
 
 sns.swarmplot(
     data=df, 
-    x="bateria", 
+    x="Porcentaje de bateria",  # Usar columna en %
     hue="color", 
     palette={
         "red": "red", 
@@ -260,38 +301,15 @@ sns.swarmplot(
 # Ajustes de ejes y título
 ax.set_yticks([])
 ax.set_ylabel("")
-ax.set_title("Estado de baterías")
+ax.set_title("Estado de baterías (%)")
 
-# Leyenda con reglas en vez de colores
+# Leyenda ordenada
 handles, labels = ax.get_legend_handles_labels()
 ordered_handles = [handles[labels.index(color)] for color in legend_labels.keys()]
 ordered_labels = [legend_labels[color] for color in legend_labels.keys()]
-
-# Asignas la leyenda
 ax.legend(ordered_handles, ordered_labels, title="Estado", bbox_to_anchor=(1.01, 1), loc="upper left")
 
-# --- Etiquetas solo para rojos ---
-offsets = ax.collections[0].get_offsets()
-texts = []
-for (x, y), label, color in zip(offsets, df["identificador"], df["color"]):
-    if color == "red":
-        texts.append(ax.text(x, y, label, fontsize=8, color="black"))
-ax.xaxis.set_major_formatter(mticker.PercentFormatter(xmax=1.0))
-# Ajuste automático para evitar superposición
-adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle="->", color="red", lw=1))
+# Eje X en formato %
+ax.xaxis.set_major_formatter(lambda x, _: f'{int(x)}%')
 
 graph_placeholder.pyplot(fig)
-
-# Filtrar solo los rojos
-df_red = df[df["color"] == "red"]
-
-# Ordenar de menor a mayor batería
-df_red_sorted = df_red.sort_values("bateria", ascending=True)
-
-# Mantener solo identificador y batería (o más columnas si quieres)
-df_red_sorted = df_red_sorted[["identificador", "bateria"]].reset_index(drop=True)
-df_red_sorted["bateria"] = df_red_sorted["bateria"] * 100
-
-# Mostrar en Streamlit como tabla
-st.subheader(f"Baterias con ultimo reporte de 1 día o más \n (menor → mayor)")
-st.dataframe(df_red_sorted)
