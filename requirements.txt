@@ -1,0 +1,8 @@
+streamlit
+pandas
+matplotlib.pyplot
+numpy
+seaborn
+adjustText
+matplotlib.ticker
+datetime
