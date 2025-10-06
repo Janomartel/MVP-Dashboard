@@ -142,9 +142,8 @@ selected_eventos = st.multiselect(
 # =========================
 # Gráfico
 # =========================
-graph_placeholder = st.empty()  # espacio para gráfico
+graph_placeholder = st.empty()
 
-# Lista desplegable para seleccionar variable **después del gráfico**
 selected_var = st.selectbox("Selecciona una variable:", df.columns[1:], index=0)
 
 today = pd.to_datetime(datetime.date.today())
@@ -153,55 +152,55 @@ df_future = df_filtered[df_filtered["Fecha"] > today]
 
 fig, ax = plt.subplots()
 
-# Combinar todo
 df_plot = df_filtered.sort_values("Fecha")
 
-fig, ax = plt.subplots()
-
-# Línea histórica + futura, estilo según fecha
+# Línea histórica
 sns.lineplot(
-    data=df_plot, 
+    data=df_plot[df_plot["Fecha"] <= today], 
     x="Fecha", 
     y=selected_var, 
     ax=ax, 
-    color="blue"
+    color="blue",
+    label="Histórico"
 )
 
-# Línea punteada para proyección solo para el visual
+# Línea de predicción (futura)
 sns.lineplot(
     data=df_plot[df_plot["Fecha"] > today],
     x="Fecha", 
     y=selected_var, 
     ax=ax, 
     color="orange", 
-    linestyle="--"
+    linestyle="--",
+    label="Predicción"
 )
 
-# Calcular min y max de la variable seleccionada
+# Líneas horizontales de referencia
 ymin = df_filtered[selected_var].min()
 ymax = df_filtered[selected_var].max()
-
-# Agregar líneas horizontales
 ax.axhline(y=ymin, color="red", linestyle="--", linewidth=1, label=f"Mínimo ({ymin:.2f})")
 ax.axhline(y=ymax, color="red", linestyle="--", linewidth=1, label=f"Máximo ({ymax:.2f})")
 
 # =========================
 # Graficar eventos filtrados
 # =========================
-for _, ev in df_eventos[df_eventos["Tipo"].isin(selected_eventos)].iterrows():
-    ax.scatter(ev["Fecha"], ev[selected_var],
-               color=colors[ev["Tipo"]], marker=markers[ev["Tipo"]],
-               s=70, label=ev["Tipo"])
-    
-# Títulos y formato
+for tipo in selected_eventos:
+    subset = df_eventos[df_eventos["Tipo"] == tipo]
+    ax.scatter(
+        subset["Fecha"], subset[selected_var],
+        color=colors[tipo],
+        marker=markers[tipo],
+        s=70,
+        label=tipo
+    )
+
+# =========================
+# Configuración general
+# =========================
 ax.set_title(f"Gráfico de {selected_var}")
 ax.set_xlabel("Fecha")
 ax.set_ylabel(selected_var)
-
-# Límites del eje X según inputs
 ax.set_xlim(start_date_input, end_date_input)
-
-# Ajustes de etiquetas eje X
 ax.tick_params(axis="x", labelsize=8)
 plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
 
