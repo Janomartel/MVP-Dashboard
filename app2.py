@@ -205,6 +205,15 @@ ax.set_xlim(start_date_input, end_date_input)
 ax.tick_params(axis="x", labelsize=8)
 plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
 
+# =========================
+# Leyenda consolidada
+# =========================
+# Combinar leyenda de líneas + eventos sin duplicados
+handles, labels = ax.get_legend_handles_labels()
+by_label = dict(zip(labels, handles))
+ax.legend(by_label.values(), by_label.keys(), title="Leyenda", loc="upper left", fontsize=8)
+
+
 graph_placeholder.pyplot(fig)
 
 
