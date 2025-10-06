@@ -211,7 +211,7 @@ plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
 # Combinar leyenda de líneas + eventos sin duplicados
 handles, labels = ax.get_legend_handles_labels()
 by_label = dict(zip(labels, handles))
-ax.legend(by_label.values(), by_label.keys(), title="Leyenda", loc="upper left", fontsize=8)
+ax.legend(by_label.values(), by_label.keys(), title="Leyenda", loc="center left", fontsize=6)
 
 
 graph_placeholder.pyplot(fig)
