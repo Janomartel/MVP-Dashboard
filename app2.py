@@ -147,43 +147,39 @@ graph_placeholder = st.empty()
 selected_var = st.selectbox("Selecciona una variable:", df.columns[1:], index=0)
 
 today = pd.to_datetime(datetime.date.today())
-df_past = df_filtered[df_filtered["Fecha"] <= today]
-df_future = df_filtered[df_filtered["Fecha"] > today]
+df_plot = df_filtered.sort_values("Fecha")
 
 fig, ax = plt.subplots()
 
-df_plot = df_filtered.sort_values("Fecha")
-
-# Línea histórica
+# --- Línea base continua (todo el periodo) ---
 sns.lineplot(
-    data=df_plot[df_plot["Fecha"] <= today], 
-    x="Fecha", 
-    y=selected_var, 
-    ax=ax, 
+    data=df_plot,
+    x="Fecha",
+    y=selected_var,
+    ax=ax,
     color="blue",
-    label="Histórico"
+    label="Histórico / Predicción"
 )
 
-# Línea de predicción (futura)
-sns.lineplot(
-    data=df_plot[df_plot["Fecha"] > today],
-    x="Fecha", 
-    y=selected_var, 
-    ax=ax, 
-    color="orange", 
-    linestyle="--",
-    label="Predicción"
-)
+# --- Superponer tramo futuro en naranja (sin romper continuidad) ---
+df_future = df_plot[df_plot["Fecha"] > today]
+if not df_future.empty:
+    ax.plot(
+        df_future["Fecha"],
+        df_future[selected_var],
+        color="orange",
+        linestyle="--",
+        linewidth=2,
+        label="Predicción"
+    )
 
-# Líneas horizontales de referencia
-ymin = df_filtered[selected_var].min()
-ymax = df_filtered[selected_var].max()
+# --- Líneas horizontales de referencia ---
+ymin = df_plot[selected_var].min()
+ymax = df_plot[selected_var].max()
 ax.axhline(y=ymin, color="red", linestyle="--", linewidth=1, label=f"Mínimo ({ymin:.2f})")
 ax.axhline(y=ymax, color="red", linestyle="--", linewidth=1, label=f"Máximo ({ymax:.2f})")
 
-# =========================
-# Graficar eventos filtrados
-# =========================
+# --- Eventos ---
 for tipo in selected_eventos:
     subset = df_eventos[df_eventos["Tipo"] == tipo]
     ax.scatter(
@@ -194,16 +190,13 @@ for tipo in selected_eventos:
         label=tipo
     )
 
-# =========================
-# Configuración general
-# =========================
+# --- Configuración del gráfico ---
 ax.set_title(f"Gráfico de {selected_var}")
 ax.set_xlabel("Fecha")
 ax.set_ylabel(selected_var)
 ax.set_xlim(start_date_input, end_date_input)
 ax.tick_params(axis="x", labelsize=8)
 plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
-
 # =========================
 # Leyenda consolidada
 # =========================
