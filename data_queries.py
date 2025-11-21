@@ -11,9 +11,9 @@ logging.basicConfig(
 )
 
 # Configuración desde Streamlit Secrets
-TB_URL = st.secrets["TB_URL"]
-TB_USERNAME = st.secrets["TB_USERNAME"]
-TB_PASSWORD = st.secrets["TB_PASSWORD"]
+TB_URL = st.secrets["THINGSBOARD_HOST"]
+TB_USERNAME = st.secrets["THINGSBOARD_USERNAME"]
+TB_PASSWORD = st.secrets["THINGSBOARD_PASSWORD"]
 TB_KEYS = st.secrets.get("TB_KEYS", "temperature,humidity,soil_conductivity")
 TB_LIMIT = st.secrets.get("TB_LIMIT", "500")
 TB_DAYS_BACK = int(st.secrets.get("TB_DAYS_BACK", "60"))
