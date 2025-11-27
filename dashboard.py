@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 from data_queries import init_connection, list_all_tenant_devices, get_device_data
 import requests
 
-url_thingsboard = "https://tb.permaculturatech.com"
-
 # Configuración de página
 st.set_page_config(
     page_title="Dashboard Permacultura Tech",
@@ -258,7 +256,7 @@ st.subheader("🔋 Estado de Batería de Dispositivos")
 # Obtener datos de batería para todos los dispositivos
 @st.cache_data(ttl=1800)
 def cargar_bateria_dispositivos(device_ids, jwt_token):
-    url_thingsboard = "https://api.thingsboard.cloud"  # Ajusta según tu URL
+    url_thingsboard = "https://tb.permaculturatech.com"  # Ajusta según tu URL
     resultados = []
     for did in device_ids:
         info = get_last_battery(did, jwt_token, url_thingsboard)
