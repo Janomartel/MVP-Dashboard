@@ -305,13 +305,18 @@ if not df_battery.empty:
     st.pyplot(fig_battery)
     
     # Tabla de batería
-    st.dataframe(
-        df_battery[["device_id", "battery", "timestamp"]].rename(columns={
-            "device_id": "Dispositivo",
-            "battery": "Batería",
-            "timestamp": "Última actualización"
-        }),
-        use_container_width=True
+   # Mapear device_ids a nombres
+device_id_to_name = {did: name for did, name in zip(device_ids, device_names)}
+df_battery["nombre_dispositivo"] = df_battery["device_id"].map(device_id_to_name)
+
+st.dataframe(
+    df_battery[["nombre_dispositivo", "battery", "timestamp"]].rename(columns={
+        "nombre_dispositivo": "Dispositivo",
+        "battery": "Batería",
+        "timestamp": "Última actualización"
+    }),
+    use_container_width=True
+)
     )
 else:
     st.info("No hay datos de batería disponibles")
