@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from data_queries import init_connection, list_all_tenant_devices, get_device_data
 import requests
 
+url_thingsboard = "https://tb.permaculturatech.com"
+
 # Configuración de página
 st.set_page_config(
     page_title="Dashboard Permacultura Tech",
