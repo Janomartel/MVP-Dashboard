@@ -308,7 +308,7 @@ if not df_battery.empty:
     # Mapear device_ids a nombres
     device_id_to_name = {did: name for did, name in zip(device_ids, device_names)}
     df_battery["nombre_dispositivo"] = df_battery["device_id"].map(device_id_to_name)
-    df_battery = df_battery.sort_values("battery", ascending=False)
+    df_battery = df_battery.sort_values("battery", ascending=True)
 
 
     st.dataframe(
