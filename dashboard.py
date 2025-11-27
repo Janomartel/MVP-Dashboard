@@ -317,6 +317,5 @@ st.dataframe(
     }),
     use_container_width=True
 )
-    )
 else:
     st.info("No hay datos de batería disponibles")
