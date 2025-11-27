@@ -3,6 +3,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from data_queries import init_connection, list_all_tenant_devices, get_device_data
+import requests
 
 # Configuración de página
 st.set_page_config(
@@ -109,7 +110,26 @@ def color_semaforo(valor):
         return '#f39c12'  # Amarillo
     else:
         return '#e74c3c'  # Rojo
-
+# ===== FUNCIÓN PARA OBTENER BATERÍA =====
+def get_last_battery(device_id, jwt_token, url_thingsboard):
+    url = f"{url_thingsboard}/api/plugins/telemetry/DEVICE/{device_id}/values/timeseries?keys=battery&limit=1"
+    headers = {"X-Authorization": f"Bearer {jwt_token}"}
+    try:
+        r = requests.get(url, headers=headers)
+        data = r.json()
+        
+        if "battery" not in data:
+            return None
+        
+        entry = data["battery"][0]
+        ts = pd.to_datetime(entry["ts"], unit="ms")
+        value = float(entry["value"])
+        
+        return {"device_id": device_id, "timestamp": ts, "battery": value}
+    except Exception as e:
+        st.warning(f"Error al obtener batería: {e}")
+        return None
+        
 # Preparar datos para gráfico
 keys_barra = []
 valores_barra = []
@@ -230,11 +250,68 @@ selected_date = st.selectbox(
 df_filtered = df[df["Fecha"] == selected_date][["fecha", "key", "value"]].sort_values("fecha")
 st.dataframe(df_filtered, use_container_width=True)
 
-# ===== PIE CHART - DISTRIBUCIÓN DE DATOS POR KEY =====
-st.subheader("📍 Distribución de Datos por Sensor")
+# ===== SECCIÓN DE BATERÍA =====
+st.subheader("🔋 Estado de Batería de Dispositivos")
 
-data_distribution = df["key"].value_counts()
-fig_pie, ax_pie = plt.subplots(figsize=(8, 6))
-ax_pie.pie(data_distribution, labels=data_distribution.index, autopct='%1.1f%%', startangle=90)
-ax_pie.set_title("Distribución de Lecturas por Sensor")
-st.pyplot(fig_pie)
+# Obtener datos de batería para todos los dispositivos
+@st.cache_data(ttl=1800)
+def cargar_bateria_dispositivos(device_ids, jwt_token):
+    url_thingsboard = "https://api.thingsboard.cloud"  # Ajusta según tu URL
+    resultados = []
+    for did in device_ids:
+        info = get_last_battery(did, jwt_token, url_thingsboard)
+        if info:
+            resultados.append(info)
+    return pd.DataFrame(resultados) if resultados else pd.DataFrame()
+
+df_battery = cargar_bateria_dispositivos(device_ids, jwt_token)
+
+if not df_battery.empty:
+    # Procesar datos de batería
+    now = pd.Timestamp.now()
+    df_battery["diff"] = now - df_battery["timestamp"]
+    
+    def asignar_color(td):
+        if td >= pd.Timedelta(days=1):
+            return "red"
+        elif td >= pd.Timedelta(hours=12):
+            return "orange"
+        elif td >= pd.Timedelta(hours=1):
+            return "yellow"
+        else:
+            return "green"
+    
+    df_battery["color"] = df_battery["diff"].apply(asignar_color)
+    df_battery["Porcentaje de bateria"] = df_battery["battery"] * 100
+    
+    # Crear gráfico de swarmplot
+    fig_battery, ax_battery = plt.subplots(figsize=(12, 5))
+    sns.swarmplot(
+        data=df_battery, 
+        x="Porcentaje de bateria",
+        hue="color",
+        palette={
+            "red": "red",
+            "orange": "orange",
+            "yellow": "yellow",
+            "green": "green"
+        },
+        size=8,
+        ax=ax_battery
+    )
+    ax_battery.set_title("Estado de Batería de Dispositivos")
+    ax_battery.set_xlabel("Porcentaje de Batería (%)")
+    plt.tight_layout()
+    st.pyplot(fig_battery)
+    
+    # Tabla de batería
+    st.dataframe(
+        df_battery[["device_id", "battery", "timestamp"]].rename(columns={
+            "device_id": "Dispositivo",
+            "battery": "Batería",
+            "timestamp": "Última actualización"
+        }),
+        use_container_width=True
+    )
+else:
+    st.info("No hay datos de batería disponibles")
