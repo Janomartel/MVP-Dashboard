@@ -188,27 +188,34 @@ if not df_cond.empty:
 # ===== HEATMAPS =====
 st.subheader("🔥 Heatmaps por Período del Día")
 
-# Agregar datos por Fecha + Período del Día
-for key in df["key"].unique():
-    df_key = df[df["key"] == key]
-    
-    if not df_key.empty:
-        df_agg = df_key.groupby(["Fecha", "Periodo_Dia"])["value"].mean().reset_index()
-        pivot = df_agg.pivot(index="Periodo_Dia", columns="Fecha", values="value")
+# Crear tabs para cada métrica
+tabs = st.tabs(["Temperatura", "Humedad", "Conductividad"])
+
+heatmap_config = {
+    "temperature": ("Temperatura del suelo", "coolwarm"),
+    "humidity": ("Contenido Volumétrico", "mako"),
+    "soil_conductivity": ("Conductividad aparente", "rocket_r")
+}
+
+keys_list = ["temperature", "humidity", "soil_conductivity"]
+
+for tab, key in zip(tabs, keys_list):
+    with tab:
+        df_key = df[df["key"] == key]
         
-        # Seleccionar colormap según el tipo de dato
-        if key == "temperature":
-            cmap = "coolwarm"
-        elif key == "humidity":
-            cmap = "mako"
+        if not df_key.empty:
+            df_agg = df_key.groupby(["Fecha", "Periodo_Dia"])["value"].mean().reset_index()
+            pivot = df_agg.pivot(index="Periodo_Dia", columns="Fecha", values="value")
+            
+            label, cmap = heatmap_config[key]
+            
+            fig_heat, ax_heat = plt.subplots(figsize=(14, 4))
+            sns.heatmap(pivot, annot=True, cmap=cmap, ax=ax_heat, cbar_kws={'label': 'Valor'})
+            ax_heat.set_title(f"Heatmap de {label} por Período del Día")
+            plt.tight_layout()
+            st.pyplot(fig_heat)
         else:
-            cmap = "rocket_r"
-        
-        fig_heat, ax_heat = plt.subplots(figsize=(14, 4))
-        sns.heatmap(pivot, annot=False, cmap=cmap, ax=ax_heat, cbar_kws={'label': 'Valor'})
-        ax_heat.set_title(f"Heatmap de {key_mapping.get(key, key)} por Período del Día")
-        plt.tight_layout()
-        st.pyplot(fig_heat)
+            st.info(f"No hay datos disponibles para {heatmap_config[key][0]}")
 
 # ===== TABLA DE DATOS =====
 st.subheader("📋 Datos Detallados")
@@ -284,6 +291,7 @@ if not df_battery.empty:
     device_id_to_name = {did: name for did, name in zip(device_ids, device_names)}
     df_battery["nombre_dispositivo"] = df_battery["device_id"].map(device_id_to_name)
     df_battery = df_battery.sort_values("battery", ascending=True)
+    df["battery"] = (df["battery"] * 100).round().astype(int)
 
 
     st.dataframe(
