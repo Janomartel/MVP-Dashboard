@@ -36,7 +36,23 @@ with st.sidebar:
     selected_device = st.selectbox("📱 Selecciona un dispositivo", device_names)
     selected_id = device_ids[device_names.index(selected_device)]
     
-    dias = st.slider("📅 Días hacia atrás", 1, 365, 60)
+    # Mostrar datos del dispositivo seleccionado
+    st.subheader(f"📊 {selected_device}")
+    
+    # Obtener último registro del dispositivo
+    df_selected = cargar_datos_dispositivo(selected_id, 60)
+    
+    if not df_selected.empty:
+        df_recent = df_selected.sort_values("fecha", ascending=False).iloc[0]
+        
+        for key in df_selected["key"].unique():
+            df_key = df_selected[df_selected["key"] == key]
+            if not df_key.empty:
+                valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
+                label = key_mapping.get(key, key)
+                st.metric(label, f"{valor:.2f}")
+
+    dias = 60  # Fijo a 60 días
 
 # ===== CARGAR DATOS =====
 @st.cache_data(ttl=1800)
@@ -70,34 +86,6 @@ df["Periodo_Dia"] = pd.Categorical(
     categories=orden_periodos,
     ordered=True
 )
-
-# ===== MÉTRICAS ACTUALES =====
-st.subheader("📈 Métricas Actuales")
-
-# Tomar la fila más reciente
-df_recent = df.sort_values("fecha", ascending=False).iloc[0]
-
-# Mapeo de nombres de claves
-key_mapping = {
-    "temperature": "Temperatura del suelo",
-    "humidity": "Contenido Volumétrico",
-    "soil_conductivity": "Conductividad aparente"
-}
-
-# Extraer valores más recientes por tipo
-valores_recientes = {}
-for key in df["key"].unique():
-    df_key = df[df["key"] == key]
-    if not df_key.empty:
-        valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
-        valores_recientes[key] = valor
-
-# Mostrar métricas en columnas
-cols = st.columns(len(valores_recientes))
-for idx, (key, valor) in enumerate(valores_recientes.items()):
-    with cols[idx]:
-        label = key_mapping.get(key, key)
-        st.metric(label, f"{valor:.2f}")
 
 # ===== GRÁFICO DE BARRAS CON SEMÁFORO =====
 st.subheader("🎯 Estado de Sensores (0-1)")
