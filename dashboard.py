@@ -131,15 +131,15 @@ def determinar_estado(valor, key):
     rojo_ranges = config.get("rojo", [])
     
     if verde_min <= valor <= verde_max:
-        return "🟩 Óptimo", '#2ecc71'
+        return "Óptimo", '#2ecc71'
     
     for min_val, max_val in amarillo_ranges:
         if min_val <= valor <= max_val:
-            return "🟨 Precaución", '#f39c12'
+            return "Precaución", '#f39c12'
     
     for min_val, max_val in rojo_ranges:
         if min_val <= valor <= max_val:
-            return "🟥 Crítico", '#e74c3c'
+            return "Crítico", '#e74c3c'
     
     return "❓ Desconocido", '#95a5a6'
 
@@ -173,50 +173,6 @@ for idx, key in enumerate(df["key"].unique()):
             st.pyplot(fig)
             plt.close(fig)
 
-# ===== REGLAS DE REFERENCIA =====
-st.subheader("📋 Parámetros de Referencia")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.write("**Humedad Volumétrica (VWC %)**")
-    st.markdown("""
-    🟩 **Óptimo**: 25% – 40%
-    
-    🟨 **Precaución**:
-    - 18% – 24% (estrés hídrico)
-    - 41% – 45% (riesgo saturación)
-    
-    🟥 **Crítico**:
-    - < 18% (estrés severo)
-    - > 45% (exceso agua)
-    """)
-
-with col2:
-    st.write("**Temperatura del Suelo (°C)**")
-    st.markdown("""
-    🟩 **Óptimo**: 18°C – 28°C
-    
-    🟨 **Precaución**:
-    - 12°C – 17°C (frío)
-    - 29°C – 32°C (calor)
-    
-    🟥 **Crítico**:
-    - < 12°C (frío extremo)
-    - > 32°C (calor extremo)
-    """)
-
-with col3:
-    st.write("**Conductividad (dS/m)**")
-    st.markdown("""
-    🟩 **Óptimo**: 0.2 – 1.2 dS/m
-    
-    🟨 **Precaución**: 1.3 – 2.0 dS/m
-    
-    🟥 **Crítico**:
-    - 2.0 – 4.0 dS/m
-    - > 4.0 dS/m (muy alto)
-    """)
 # ===== REGLAS DE REFERENCIA =====
 st.subheader("📋 Parámetros de Referencia")
 
