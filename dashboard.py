@@ -372,97 +372,87 @@ if not df_battery.empty:
 else:
     st.info("No hay datos de batería disponibles")
 
-# ===== ÍNDICE DE RIESGO DE BLOQUEO =====
+# ===== ÍNDICE DE RIESGO DE BLOQUEO (PROMEDIO DE TODOS LOS DISPOSITIVOS) =====
 st.subheader("⚠️ Índice de Riesgo de Bloqueo Nutricional")
 
-def clamp(x, a=0.0, b=1.0):
-    return max(a, min(b, x))
+@st.cache_data(ttl=1800)
+def cargar_datos_todos_dispositivos(device_ids, dias):
+    all_data = []
+    for did in device_ids:
+        try:
+            df_device = get_device_data(did, jwt_token, days_back=dias)
+            all_data.append(df_device)
+        except:
+            continue
+    return pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
 
-def riesgo_bloqueo(hum, temp, ec,
-                   w_h=0.35, w_t=0.15, w_e=0.50,
-                   t_low=15, t_high=25):
-    # Humedad (%)
-    H_risk = (100.0 - hum) / 100.0
-    H_risk = clamp(H_risk)
-    # Temperatura
-    if t_low <= temp <= t_high:
-        T_risk = 0.0
-    elif temp > t_high:
-        T_risk = clamp((temp - t_high) / 15.0)
+# Cargar datos de todos los dispositivos
+df_all = cargar_datos_todos_dispositivos(device_ids, dias)
+
+if not df_all.empty:
+    # Obtener valores PROMEDIO de todos los dispositivos
+    valores_promedio = {}
+    for key in df_all["key"].unique():
+        df_key = df_all[df_all["key"] == key]
+        if not df_key.empty:
+            valor = float(df_key["value"].mean())
+            valores_promedio[key] = valor
+    
+    # Calcular riesgo con promedios
+    if "humidity" in valores_promedio and "temperature" in valores_promedio and "soil_conductivity" in valores_promedio:
+        riesgo = riesgo_bloqueo(
+            hum=valores_promedio["humidity"],
+            temp=valores_promedio["temperature"],
+            ec=valores_promedio["soil_conductivity"]
+        )
+        
+        # Mostrar indicador principal
+        col_riesgo_main, col_riesgo_details = st.columns([2, 1])
+        
+        with col_riesgo_main:
+            # Determinar color según riesgo
+            R_score = riesgo['R_0_10']
+            if R_score < 3:
+                color_riesgo = '#2ecc71'  # Verde
+                nivel = "🟩 Bajo"
+            elif R_score < 6:
+                color_riesgo = '#f39c12'  # Amarillo
+                nivel = "🟨 Moderado"
+            else:
+                color_riesgo = '#e74c3c'  # Rojo
+                nivel = "🟥 Alto"
+            
+            fig_riesgo, ax_riesgo = plt.subplots(figsize=(6, 4))
+            
+            # Gráfico de barras horizontal para riesgo
+            riesgos = ['Humedad', 'Temperatura', 'Conductividad']
+            valores_riesgo = [riesgo['H_risk'], riesgo['T_risk'], riesgo['EC_risk']]
+            colores = ['#3498db', '#e67e22', '#9b59b6']
+            
+            ax_riesgo.barh(riesgos, valores_riesgo, color=colores)
+            ax_riesgo.set_xlim(0, 1)
+            ax_riesgo.set_xlabel('Nivel de Riesgo')
+            ax_riesgo.set_title('Componentes de Riesgo de Bloqueo')
+            
+            for i, v in enumerate(valores_riesgo):
+                ax_riesgo.text(v + 0.02, i, f'{v:.2f}', va='center', fontweight='bold')
+            
+            plt.tight_layout()
+            st.pyplot(fig_riesgo)
+            plt.close(fig_riesgo)
+        
+        with col_riesgo_details:
+            st.metric("Riesgo General", f"{R_score}/10", delta=nivel)
+            st.markdown(f"""
+            **Detalles (Promedio):**
+            - Humedad: {valores_promedio['humidity']:.2f}%
+            - Temperatura: {valores_promedio['temperature']:.2f}°C
+            - Conductividad: {valores_promedio['soil_conductivity']:.2f} dS/m
+            """)
     else:
-        T_risk = clamp((t_low - temp) / 15.0)
-    # Conductividad (dS/m)
-    EC_risk = clamp((ec - 1.0) / (4.0 - 1.0))
-    R_raw = w_h * H_risk + w_t * T_risk + w_e * EC_risk
-    R = round(R_raw * 10.0, 1)
-    return {
-        'H_risk': H_risk,
-        'T_risk': T_risk,
-        'EC_risk': EC_risk,
-        'R_raw': R_raw,
-        'R_0_10': R
-    }
-
-# Obtener valores actuales
-valores_actuales = {}
-for key in df["key"].unique():
-    df_key = df[df["key"] == key]
-    if not df_key.empty:
-        valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
-        valores_actuales[key] = valor
-
-# Calcular riesgo
-if "humidity" in valores_actuales and "temperature" in valores_actuales and "soil_conductivity" in valores_actuales:
-    riesgo = riesgo_bloqueo(
-        hum=valores_actuales["humidity"],
-        temp=valores_actuales["temperature"],
-        ec=valores_actuales["soil_conductivity"]
-    )
-    
-    # Mostrar indicador principal
-    col_riesgo_main, col_riesgo_details = st.columns([2, 1])
-    
-    with col_riesgo_main:
-        # Determinar color según riesgo
-        R_score = riesgo['R_0_10']
-        if R_score < 3:
-            color_riesgo = '#2ecc71'  # Verde
-            nivel = "Bajo"
-        elif R_score < 6:
-            color_riesgo = '#f39c12'  # Amarillo
-            nivel = "Moderado"
-        else:
-            color_riesgo = '#e74c3c'  # Rojo
-            nivel = "Alto"
-        
-        fig_riesgo, ax_riesgo = plt.subplots(figsize=(6, 4))
-        
-        # Gráfico de barras horizontal para riesgo
-        riesgos = ['Humedad', 'Temperatura', 'Conductividad']
-        valores_riesgo = [riesgo['H_risk'], riesgo['T_risk'], riesgo['EC_risk']]
-        colores = ['#3498db', '#e67e22', '#9b59b6']
-        
-        ax_riesgo.barh(riesgos, valores_riesgo, color=colores)
-        ax_riesgo.set_xlim(0, 1)
-        ax_riesgo.set_xlabel('Nivel de Riesgo')
-        ax_riesgo.set_title('Componentes de Riesgo de Bloqueo')
-        
-        for i, v in enumerate(valores_riesgo):
-            ax_riesgo.text(v + 0.02, i, f'{v:.2f}', va='center', fontweight='bold')
-        
-        plt.tight_layout()
-        st.pyplot(fig_riesgo)
-    
-    with col_riesgo_details:
-        st.metric("Riesgo General", f"{R_score}/10", delta=nivel)
-        st.markdown(f"""
-        **Detalles:**
-        - Humedad: {riesgo['H_risk']:.2f}
-        - Temperatura: {riesgo['T_risk']:.2f}
-        - Conductividad: {riesgo['EC_risk']:.2f}
-        """)
+        st.info("Datos insuficientes para calcular riesgo de bloqueo")
 else:
-    st.info("Datos insuficientes para calcular riesgo de bloqueo")
+    st.info("No se pudieron cargar datos de los dispositivos")
 
 # ===== RECOMENDACIONES DE CONDUCTIVIDAD =====
 st.subheader("💡 Recomendaciones de Conductividad Eléctrica")
@@ -495,11 +485,10 @@ def color_ce(categoria):
     }
     return colores[categoria]
 
-# Obtener CE actual
-df_ce = df[df["key"] == "soil_conductivity"]
+# Obtener CE promedio de TODOS los dispositivos
+df_ce = df_all[df_all["key"] == "soil_conductivity"]
 if not df_ce.empty:
-    ce_actual = float(df_ce.sort_values("fecha", ascending=False).iloc[0]["value"])
-    
+    ce_actual = float(df_ce["value"].mean())
     # Clasificar
     categoria_ce = clasificar_ce(ce_actual)
     recom = recomendacion_ce(categoria_ce)
