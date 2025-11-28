@@ -168,9 +168,10 @@ with col_right:
             label = parametros.get(key, {}).get("label", key)
             
             # Crear gráfico circular
-            fig, ax = plt.subplots(figsize=(1, 1))
+            fig, ax = plt.subplots(figsize=(0.5, 0.5))
             ax.pie([1], colors=[color], startangle=90)
-            ax.set_title(f"{label}\n{estado_text}", fontsize=9, fontweight='bold')
+            ax.set_title(f"{label}", fontsize=9, fontweight='bold')
+            ax.text(0, -1.3, estado_text, ha='center', fontsize=10, fontweight='bold')
             st.pyplot(fig)
 
 # ===== REGLAS DE REFERENCIA =====
