@@ -131,17 +131,17 @@ def determinar_estado(valor, key):
     rojo_ranges = config.get("rojo", [])
     
     if verde_min <= valor <= verde_max:
-        return "🟩 Óptimo", '#2ecc71'
+        return "Óptimo", '#2ecc71'
     
     for min_val, max_val in amarillo_ranges:
         if min_val <= valor <= max_val:
-            return "🟨 Precaución", '#f39c12'
+            return "Precaución", '#f39c12'
     
     for min_val, max_val in rojo_ranges:
         if min_val <= valor <= max_val:
-            return "🟥 Crítico", '#e74c3c'
+            return "Crítico", '#e74c3c'
     
-    return "❓ Desconocido", '#95a5a6'
+    return "Desconocido", '#95a5a6'
 
 col_left, col_right = st.columns(2)
 
@@ -168,7 +168,7 @@ with col_right:
             label = parametros.get(key, {}).get("label", key)
             
             # Crear gráfico circular
-            fig, ax = plt.subplots(figsize=(3, 3))
+            fig, ax = plt.subplots(figsize=(1, 1))
             ax.pie([1], colors=[color], startangle=90)
             ax.set_title(f"{label}\n{estado_text}", fontsize=9, fontweight='bold')
             st.pyplot(fig)
