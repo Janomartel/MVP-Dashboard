@@ -51,7 +51,22 @@ df = cargar_datos_dispositivo(selected_id, dias)
 if df.empty:
     st.warning("No hay datos disponibles para este dispositivo")
     st.stop()   
-    
+
+# ===== CARGAR DATOS DE TODOS LOS DISPOSITIVOS =====
+@st.cache_data(ttl=1800)
+def cargar_datos_todos_dispositivos(device_ids, dias):
+    all_data = []
+    for did in device_ids:
+        try:
+            df_device = get_device_data(did, jwt_token, days_back=dias)
+            all_data.append(df_device)
+        except:
+            continue
+    return pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
+
+# Cargar datos de todos los dispositivos
+df_all = cargar_datos_todos_dispositivos(device_ids, dias)
+
 # ===== INGENIERÍA DE CARACTERÍSTICAS =====
 df["Fecha"] = df["fecha"].dt.date
 df["Hora_del_Dia"] = df["fecha"].dt.hour
@@ -374,20 +389,6 @@ else:
 
 # ===== ÍNDICE DE RIESGO DE BLOQUEO (PROMEDIO DE TODOS LOS DISPOSITIVOS) =====
 st.subheader("⚠️ Índice de Riesgo de Bloqueo Nutricional")
-
-@st.cache_data(ttl=1800)
-def cargar_datos_todos_dispositivos(device_ids, dias):
-    all_data = []
-    for did in device_ids:
-        try:
-            df_device = get_device_data(did, jwt_token, days_back=dias)
-            all_data.append(df_device)
-        except:
-            continue
-    return pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
-
-# Cargar datos de todos los dispositivos
-df_all = cargar_datos_todos_dispositivos(device_ids, dias)
 
 if not df_all.empty:
     # Obtener valores PROMEDIO de todos los dispositivos
