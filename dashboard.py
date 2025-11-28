@@ -73,18 +73,7 @@ df["Periodo_Dia"] = pd.Categorical(
     categories=orden_periodos,
     ordered=True
 )
-    
-# ===== GRÁFICO DE BARRAS CON SEMÁFORO =====
-st.subheader("🎯 Estado de Sensores (0-1)")
 
-# Función semáforo
-def color_semaforo(valor):
-    if valor <= 0.33:
-        return '#2ecc71'  # Verde
-    elif valor <= 0.66:
-        return '#f39c12'  # Amarillo
-    else:
-        return '#e74c3c'  # Rojo
 # ===== FUNCIÓN PARA OBTENER BATERÍA =====
 def get_last_battery(device_id, jwt_token, url_thingsboard):
     url = f"{url_thingsboard}/api/plugins/telemetry/DEVICE/{device_id}/values/timeseries?keys=battery&limit=1"
@@ -104,6 +93,18 @@ def get_last_battery(device_id, jwt_token, url_thingsboard):
     except Exception as e:
         st.warning(f"Error al obtener batería: {e}")
         return None
+        
+# ===== GRÁFICO DE BARRAS CON SEMÁFORO =====
+st.subheader("🎯 Estado de Sensores (0-1)")
+
+# Función semáforo
+def color_semaforo(valor):
+    if valor <= 0.33:
+        return '#2ecc71'  # Verde
+    elif valor <= 0.66:
+        return '#f39c12'  # Amarillo
+    else:
+        return '#e74c3c'  # Rojo
         
 # Preparar datos para gráfico
 keys_barra = []
@@ -142,48 +143,36 @@ st.pyplot(fig_barras)
 # ===== MÉTRICAS HISTÓRICAS =====
 st.subheader("📊 Métricas Históricas")
 
-# Gráficos de series de tiempo
 df_sorted = df.sort_values("fecha")
 
-col1, col2 = st.columns(2)
+# Crear tabs para cada métrica
+tabs = st.tabs(["Temperatura", "Humedad", "Conductividad"])
 
-# Temperatura
-with col1:
-    df_temp = df_sorted[df_sorted["key"] == "temperature"]
-    if not df_temp.empty:
-        fig_temp, ax_temp = plt.subplots(figsize=(10, 4))
-        ax_temp.plot(df_temp["fecha"], df_temp["value"], color='tomato', linewidth=2)
-        ax_temp.set_title("Temperatura Histórica")
-        ax_temp.set_xlabel("Fecha")
-        ax_temp.set_ylabel("°C")
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        st.pyplot(fig_temp)
+historico_config = {
+    "temperature": ("temperature", "Temperatura Histórica", "°C", "tomato"),
+    "humidity": ("humidity", "Humedad Histórica", "Valor", "steelblue"),
+    "soil_conductivity": ("soil_conductivity", "Conductividad Histórica", "Valor", "green")
+}
 
-# Humedad
-with col2:
-    df_hum = df_sorted[df_sorted["key"] == "humidity"]
-    if not df_hum.empty:
-        fig_hum, ax_hum = plt.subplots(figsize=(10, 4))
-        ax_hum.plot(df_hum["fecha"], df_hum["value"], color='steelblue', linewidth=2)
-        ax_hum.set_title("Humedad Histórica")
-        ax_hum.set_xlabel("Fecha")
-        ax_hum.set_ylabel("Valor")
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        st.pyplot(fig_hum)
+keys_list = ["temperature", "humidity", "soil_conductivity"]
 
-# Conductividad
-df_cond = df_sorted[df_sorted["key"] == "soil_conductivity"]
-if not df_cond.empty:
-    fig_cond, ax_cond = plt.subplots(figsize=(10, 4))
-    ax_cond.plot(df_cond["fecha"], df_cond["value"], color='green', linewidth=2)
-    ax_cond.set_title("Conductividad Histórica")
-    ax_cond.set_xlabel("Fecha")
-    ax_cond.set_ylabel("Valor")
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    st.pyplot(fig_cond)
+for tab, key in zip(tabs, keys_list):
+    with tab:
+        df_key = df_sorted[df_sorted["key"] == key]
+        
+        if not df_key.empty:
+            _, title, ylabel, color = historico_config[key]
+            
+            fig, ax = plt.subplots(figsize=(12, 5))
+            ax.plot(df_key["fecha"], df_key["value"], color=color, linewidth=2)
+            ax.set_title(title)
+            ax.set_xlabel("Fecha")
+            ax.set_ylabel(ylabel)
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            st.pyplot(fig)
+        else:
+            st.info(f"No hay datos disponibles")
 
 # ===== HEATMAPS =====
 st.subheader("🔥 Heatmaps por Período del Día")
