@@ -170,8 +170,8 @@ with col_right:
             # Crear gráfico circular
             fig, ax = plt.subplots(figsize=(0.5, 0.5))
             ax.pie([1], colors=[color], startangle=90)
-            ax.set_title(f"{label}", fontsize=9, fontweight='bold')
-            ax.text(0, -1.3, estado_text, ha='center', fontsize=10, fontweight='bold')
+            ax.set_title(f"{label}", fontsize=5, fontweight='bold')
+            ax.text(0, -1.3, estado_text, ha='center', fontsize=5, fontweight='bold')
             st.pyplot(fig)
 
 # ===== REGLAS DE REFERENCIA =====
