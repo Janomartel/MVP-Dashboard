@@ -179,17 +179,15 @@ st.subheader("📋 Parámetros de Referencia")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.write("**Humedad Volumétrica (VWC %)**")
+    st.write("**Conductividad (dS/m)**")
     st.markdown("""
-    🟩 **Óptimo**: 25% – 40%
+    🟩 **Óptimo**: 0.2 – 1.2 dS/m
     
-    🟨 **Precaución**:
-    - 18% – 24% (estrés hídrico)
-    - 41% – 45% (riesgo saturación)
+    🟨 **Precaución**: 1.3 – 2.0 dS/m
     
     🟥 **Crítico**:
-    - < 18% (estrés severo)
-    - > 45% (exceso agua)
+    - 2.0 – 4.0 dS/m
+    - > 4.0 dS/m (muy alto)
     """)
 
 with col2:
@@ -207,15 +205,17 @@ with col2:
     """)
 
 with col3:
-    st.write("**Conductividad (dS/m)**")
+    st.write("**Humedad Volumétrica (VWC %)**")
     st.markdown("""
-    🟩 **Óptimo**: 0.2 – 1.2 dS/m
+    🟩 **Óptimo**: 25% – 40%
     
-    🟨 **Precaución**: 1.3 – 2.0 dS/m
+    🟨 **Precaución**:
+    - 18% – 24% (estrés hídrico)
+    - 41% – 45% (riesgo saturación)
     
     🟥 **Crítico**:
-    - 2.0 – 4.0 dS/m
-    - > 4.0 dS/m (muy alto)
+    - < 18% (estrés severo)
+    - > 45% (exceso agua)
     """)
 
 # ===== MÉTRICAS HISTÓRICAS =====
