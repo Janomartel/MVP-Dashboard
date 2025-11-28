@@ -160,20 +160,36 @@ with col_left:
 with col_right:
     st.write("**Estado:**")
     
-    for key in df["key"].unique():
+    # Mostrar valores arriba
+    st.write("**Valores:**")
+    value_cols = st.columns(3)
+    for idx, key in enumerate(df["key"].unique()):
+        df_key = df[df["key"] == key]
+        if not df_key.empty:
+            valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
+            unit = parametros.get(key, {}).get("unit", "")
+            label = parametros.get(key, {}).get("label", key).split("(")[0].strip()
+            
+            with value_cols[idx]:
+                st.metric(label, f"{valor:.2f} {unit}")
+    
+    # Mostrar gráficos en línea
+    st.write("**Indicadores:**")
+    circles = st.columns(3)
+    
+    for idx, key in enumerate(df["key"].unique()):
         df_key = df[df["key"] == key]
         if not df_key.empty:
             valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
             estado_text, color = determinar_estado(valor, key)
-            label = parametros.get(key, {}).get("label", key)
             
-            # Crear gráfico circular
-            fig, ax = plt.subplots(figsize=(0.5, 0.5))
-            ax.pie([1], colors=[color], startangle=90)
-            ax.set_title(f"{label}", fontsize=5, fontweight='bold')
-            ax.text(0, -1.3, estado_text, ha='center', fontsize=5, fontweight='bold')
-            st.pyplot(fig)
-
+            with circles[idx]:
+                fig, ax = plt.subplots(figsize=(2.5, 2.5))
+                ax.pie([1], colors=[color], startangle=90)
+                ax.axis('off')
+                ax.text(0, -1.3, estado_text, ha='center', fontsize=9, fontweight='bold')
+                st.pyplot(fig)
+                plt.close(fig)
 # ===== REGLAS DE REFERENCIA =====
 st.subheader("📋 Parámetros de Referencia")
 
