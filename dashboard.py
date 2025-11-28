@@ -157,7 +157,34 @@ def determinar_estado(valor, key):
             return "Crítico", '#e74c3c'
     
     return "❓ Desconocido", '#95a5a6'
+def clamp(x, a=0.0, b=1.0):
+    return max(a, min(b, x))
 
+def riesgo_bloqueo(hum, temp, ec,
+                   w_h=0.35, w_t=0.15, w_e=0.50,
+                   t_low=15, t_high=25):
+    # Humedad (%)
+    H_risk = (100.0 - hum) / 100.0
+    H_risk = clamp(H_risk)
+    # Temperatura
+    if t_low <= temp <= t_high:
+        T_risk = 0.0
+    elif temp > t_high:
+        T_risk = clamp((temp - t_high) / 15.0)
+    else:
+        T_risk = clamp((t_low - temp) / 15.0)
+    # Conductividad (dS/m)
+    EC_risk = clamp((ec - 1.0) / (4.0 - 1.0))
+    R_raw = w_h * H_risk + w_t * T_risk + w_e * EC_risk
+    R = round(R_raw * 10.0, 1)
+    return {
+        'H_risk': H_risk,
+        'T_risk': T_risk,
+        'EC_risk': EC_risk,
+        'R_raw': R_raw,
+        'R_0_10': R
+    }
+                       
 st.write("**Valores:**")
 value_cols = st.columns(3)
 for idx, key in enumerate(df["key"].unique()):
