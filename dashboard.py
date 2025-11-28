@@ -531,30 +531,30 @@ if not df_ce.empty:
         st.info(f"📌 {recom}")
     
     with col_ce_visual:
-    # Gráfico de categorías
-    fig_ce, ax_ce = plt.subplots(figsize=(6, 4))
-    
-    # Definir rangos reales
-    rangos = [(0, 1.0), (1.0, 2.5), (2.5, 4.0), (4.0, 5.0)]
-    categorias = ["Bajo\n(<1.0)", "Medio\n(1.0-2.5)", "Alto\n(2.5-4.0)", "Muy alto\n(>4.0)"]
-    colores_cat = ['#2ecc71', '#f39c12', '#e67e22', '#e74c3c']
-    
-    # Dibujar barras con ancho proporcional
-    for i, (start, end) in enumerate(rangos):
-        ax_ce.barh(0, end - start, left=start, height=0.5, color=colores_cat[i], 
-                   edgecolor='black', linewidth=2, label=categorias[i])
-    
-    # Marcar posición actual
-    ax_ce.axvline(x=ce_actual, color='blue', linestyle='--', linewidth=3, label=f'Actual: {ce_actual:.2f}')
-    
-    ax_ce.set_xlim(0, 5)
-    ax_ce.set_xlabel('Conductividad (dS/m)')
-    ax_ce.set_title('Clasificación de Conductividad Eléctrica')
-    ax_ce.set_yticks([])
-    ax_ce.legend(loc='upper right')
-    
-    plt.tight_layout()
-    st.pyplot(fig_ce)
-    plt.close(fig_ce)
+        # Gráfico de categorías
+        fig_ce, ax_ce = plt.subplots(figsize=(6, 4))
+        
+        # Definir rangos reales
+        rangos = [(0, 1.0), (1.0, 2.5), (2.5, 4.0), (4.0, 5.0)]
+        categorias = ["Bajo\n(<1.0)", "Medio\n(1.0-2.5)", "Alto\n(2.5-4.0)", "Muy alto\n(>4.0)"]
+        colores_cat = ['#2ecc71', '#f39c12', '#e67e22', '#e74c3c']
+        
+        # Dibujar barras con ancho proporcional
+        for i, (start, end) in enumerate(rangos):
+            ax_ce.barh(0, end - start, left=start, height=0.5, color=colores_cat[i], 
+                       edgecolor='black', linewidth=2, label=categorias[i])
+        
+        # Marcar posición actual
+        ax_ce.axvline(x=ce_actual, color='blue', linestyle='--', linewidth=3, label=f'Actual: {ce_actual:.2f}')
+        
+        ax_ce.set_xlim(0, 5)
+        ax_ce.set_xlabel('Conductividad (dS/m)')
+        ax_ce.set_title('Clasificación de Conductividad Eléctrica')
+        ax_ce.set_yticks([])
+        ax_ce.legend(loc='upper right')
+        
+        plt.tight_layout()
+        st.pyplot(fig_ce)
+        plt.close(fig_ce)
 else:
     st.info("No hay datos de conductividad disponibles")
