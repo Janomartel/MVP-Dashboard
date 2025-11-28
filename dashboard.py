@@ -131,65 +131,92 @@ def determinar_estado(valor, key):
     rojo_ranges = config.get("rojo", [])
     
     if verde_min <= valor <= verde_max:
-        return "Óptimo", '#2ecc71'
+        return "🟩 Óptimo", '#2ecc71'
     
     for min_val, max_val in amarillo_ranges:
         if min_val <= valor <= max_val:
-            return "Precaución", '#f39c12'
+            return "🟨 Precaución", '#f39c12'
     
     for min_val, max_val in rojo_ranges:
         if min_val <= valor <= max_val:
-            return "Crítico", '#e74c3c'
+            return "🟥 Crítico", '#e74c3c'
     
-    return "Desconocido", '#95a5a6'
+    return "❓ Desconocido", '#95a5a6'
 
-col_left, col_right = st.columns(2)
-
-# Lado izquierdo - Valores del dispositivo seleccionado
-with col_left:
-    st.write("**Valores Actuales:**")
-    for key in df["key"].unique():
-        df_key = df[df["key"] == key]
-        if not df_key.empty:
-            valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
-            label = parametros.get(key, {}).get("label", key)
-            unit = parametros.get(key, {}).get("unit", "")
+st.write("**Valores:**")
+value_cols = st.columns(3)
+for idx, key in enumerate(df["key"].unique()):
+    df_key = df[df["key"] == key]
+    if not df_key.empty:
+        valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
+        unit = parametros.get(key, {}).get("unit", "")
+        label = parametros.get(key, {}).get("label", key).split("(")[0].strip()
+        
+        with value_cols[idx]:
             st.metric(label, f"{valor:.2f} {unit}")
 
-# Lado derecho - Círculos de color con semáforo
-with col_right:
-    st.write("**Estado:**")
+# Mostrar gráficos en línea
+st.write("**Indicadores:**")
+circles = st.columns(3)
+
+for idx, key in enumerate(df["key"].unique()):
+    df_key = df[df["key"] == key]
+    if not df_key.empty:
+        valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
+        estado_text, color = determinar_estado(valor, key)
+        
+        with circles[idx]:
+            fig, ax = plt.subplots(figsize=(2.5, 2.5))
+            ax.pie([1], colors=[color], startangle=90)
+            ax.axis('off')
+            ax.text(0, -1.3, estado_text, ha='center', fontsize=9, fontweight='bold')
+            st.pyplot(fig)
+            plt.close(fig)
+
+# ===== REGLAS DE REFERENCIA =====
+st.subheader("📋 Parámetros de Referencia")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.write("**Humedad Volumétrica (VWC %)**")
+    st.markdown("""
+    🟩 **Óptimo**: 25% – 40%
     
-    # Mostrar valores arriba
-    st.write("**Valores:**")
-    value_cols = st.columns(3)
-    for idx, key in enumerate(df["key"].unique()):
-        df_key = df[df["key"] == key]
-        if not df_key.empty:
-            valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
-            unit = parametros.get(key, {}).get("unit", "")
-            label = parametros.get(key, {}).get("label", key).split("(")[0].strip()
-            
-            with value_cols[idx]:
-                st.metric(label, f"{valor:.2f} {unit}")
+    🟨 **Precaución**:
+    - 18% – 24% (estrés hídrico)
+    - 41% – 45% (riesgo saturación)
     
-    # Mostrar gráficos en línea
-    st.write("**Indicadores:**")
-    circles = st.columns(3)
+    🟥 **Crítico**:
+    - < 18% (estrés severo)
+    - > 45% (exceso agua)
+    """)
+
+with col2:
+    st.write("**Temperatura del Suelo (°C)**")
+    st.markdown("""
+    🟩 **Óptimo**: 18°C – 28°C
     
-    for idx, key in enumerate(df["key"].unique()):
-        df_key = df[df["key"] == key]
-        if not df_key.empty:
-            valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
-            estado_text, color = determinar_estado(valor, key)
-            
-            with circles[idx]:
-                fig, ax = plt.subplots(figsize=(2.5, 2.5))
-                ax.pie([1], colors=[color], startangle=90)
-                ax.axis('off')
-                ax.text(0, -1.3, estado_text, ha='center', fontsize=9, fontweight='bold')
-                st.pyplot(fig)
-                plt.close(fig)
+    🟨 **Precaución**:
+    - 12°C – 17°C (frío)
+    - 29°C – 32°C (calor)
+    
+    🟥 **Crítico**:
+    - < 12°C (frío extremo)
+    - > 32°C (calor extremo)
+    """)
+
+with col3:
+    st.write("**Conductividad (dS/m)**")
+    st.markdown("""
+    🟩 **Óptimo**: 0.2 – 1.2 dS/m
+    
+    🟨 **Precaución**: 1.3 – 2.0 dS/m
+    
+    🟥 **Crítico**:
+    - 2.0 – 4.0 dS/m
+    - > 4.0 dS/m (muy alto)
+    """)
 # ===== REGLAS DE REFERENCIA =====
 st.subheader("📋 Parámetros de Referencia")
 
