@@ -21,39 +21,6 @@ except Exception as e:
     st.error(f"Error de conexión a ThingsBoard: {e}")
     st.stop()
 
-# ===== SIDEBAR - SELECTOR DE DISPOSITIVO =====
-with st.sidebar:
-    st.header("⚙️ Configuración")
-    
-    @st.cache_data(ttl=3600)
-    def cargar_dispositivos():
-        return list_all_tenant_devices(jwt_token)
-    
-    dispositivos = cargar_dispositivos()
-    device_names = [d.get("name", "N/A") for d in dispositivos]
-    device_ids = [d.get("id", {}).get("id") for d in dispositivos]
-    
-    selected_device = st.selectbox("📱 Selecciona un dispositivo", device_names)
-    selected_id = device_ids[device_names.index(selected_device)]
-    
-    # Mostrar datos del dispositivo seleccionado
-    st.subheader(f"📊 {selected_device}")
-    
-    # Obtener último registro del dispositivo
-    df_selected = cargar_datos_dispositivo(selected_id, 60)
-    
-    if not df_selected.empty:
-        df_recent = df_selected.sort_values("fecha", ascending=False).iloc[0]
-        
-        for key in df_selected["key"].unique():
-            df_key = df_selected[df_selected["key"] == key]
-            if not df_key.empty:
-                valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
-                label = key_mapping.get(key, key)
-                st.metric(label, f"{valor:.2f}")
-
-    dias = 60  # Fijo a 60 días
-
 # ===== CARGAR DATOS =====
 @st.cache_data(ttl=1800)
 def cargar_datos_dispositivo(device_id, days):
@@ -86,7 +53,39 @@ df["Periodo_Dia"] = pd.Categorical(
     categories=orden_periodos,
     ordered=True
 )
+# ===== SIDEBAR - SELECTOR DE DISPOSITIVO =====
+with st.sidebar:
+    st.header("⚙️ Configuración")
+    
+    @st.cache_data(ttl=3600)
+    def cargar_dispositivos():
+        return list_all_tenant_devices(jwt_token)
+    
+    dispositivos = cargar_dispositivos()
+    device_names = [d.get("name", "N/A") for d in dispositivos]
+    device_ids = [d.get("id", {}).get("id") for d in dispositivos]
+    
+    selected_device = st.selectbox("📱 Selecciona un dispositivo", device_names)
+    selected_id = device_ids[device_names.index(selected_device)]
+    
+    # Mostrar datos del dispositivo seleccionado
+    st.subheader(f"📊 {selected_device}")
+    
+    # Obtener último registro del dispositivo
+    df_selected = cargar_datos_dispositivo(selected_id, 60)
+    
+    if not df_selected.empty:
+        df_recent = df_selected.sort_values("fecha", ascending=False).iloc[0]
+        
+        for key in df_selected["key"].unique():
+            df_key = df_selected[df_selected["key"] == key]
+            if not df_key.empty:
+                valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
+                label = key_mapping.get(key, key)
+                st.metric(label, f"{valor:.2f}")
 
+    dias = 60  # Fijo a 60 días
+    
 # ===== GRÁFICO DE BARRAS CON SEMÁFORO =====
 st.subheader("🎯 Estado de Sensores (0-1)")
 
