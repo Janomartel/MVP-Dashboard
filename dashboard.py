@@ -27,22 +27,19 @@ key_mapping = {
     "humidity": "Contenido Volumétrico",
     "soil_conductivity": "Conductividad aparente"
 }
-# ===== SIDEBAR - SELECTOR DE DISPOSITIVO =====
-with st.sidebar:
-    st.header("⚙️ Configuración")
-    
-    @st.cache_data(ttl=3600)
-    def cargar_dispositivos():
-        return list_all_tenant_devices(jwt_token)
-    
-    dispositivos = cargar_dispositivos()
-    device_names = [d.get("name", "N/A") for d in dispositivos]
-    device_ids = [d.get("id", {}).get("id") for d in dispositivos]
-    
-    selected_device = st.selectbox("📱 Selecciona un dispositivo", device_names)
-    selected_id = device_ids[device_names.index(selected_device)]
-    
-    dias = 60  # Fijo a 60 días
+# ===== SELECTOR DE DISPOSITIVO =====
+@st.cache_data(ttl=3600)
+def cargar_dispositivos():
+    return list_all_tenant_devices(jwt_token)
+
+dispositivos = cargar_dispositivos()
+device_names = [d.get("name", "N/A") for d in dispositivos]
+device_ids = [d.get("id", {}).get("id") for d in dispositivos]
+
+selected_device = st.selectbox("📱 Selecciona un dispositivo", device_names)
+selected_id = device_ids[device_names.index(selected_device)]
+
+dias = 60  # Fijo a 60 días
     
 # ===== CARGAR DATOS =====
 @st.cache_data(ttl=1800)
