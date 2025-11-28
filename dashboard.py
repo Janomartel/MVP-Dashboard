@@ -371,3 +371,154 @@ if not df_battery.empty:
     )
 else:
     st.info("No hay datos de batería disponibles")
+
+# ===== ÍNDICE DE RIESGO DE BLOQUEO =====
+st.subheader("⚠️ Índice de Riesgo de Bloqueo Nutricional")
+
+def clamp(x, a=0.0, b=1.0):
+    return max(a, min(b, x))
+
+def riesgo_bloqueo(hum, temp, ec,
+                   w_h=0.35, w_t=0.15, w_e=0.50,
+                   t_low=15, t_high=25):
+    # Humedad (%)
+    H_risk = (100.0 - hum) / 100.0
+    H_risk = clamp(H_risk)
+    # Temperatura
+    if t_low <= temp <= t_high:
+        T_risk = 0.0
+    elif temp > t_high:
+        T_risk = clamp((temp - t_high) / 15.0)
+    else:
+        T_risk = clamp((t_low - temp) / 15.0)
+    # Conductividad (dS/m)
+    EC_risk = clamp((ec - 1.0) / (4.0 - 1.0))
+    R_raw = w_h * H_risk + w_t * T_risk + w_e * EC_risk
+    R = round(R_raw * 10.0, 1)
+    return {
+        'H_risk': H_risk,
+        'T_risk': T_risk,
+        'EC_risk': EC_risk,
+        'R_raw': R_raw,
+        'R_0_10': R
+    }
+
+# Obtener valores actuales
+valores_actuales = {}
+for key in df["key"].unique():
+    df_key = df[df["key"] == key]
+    if not df_key.empty:
+        valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
+        valores_actuales[key] = valor
+
+# Calcular riesgo
+if "humidity" in valores_actuales and "temperature" in valores_actuales and "soil_conductivity" in valores_actuales:
+    riesgo = riesgo_bloqueo(
+        hum=valores_actuales["humidity"],
+        temp=valores_actuales["temperature"],
+        ec=valores_actuales["soil_conductivity"]
+    )
+    
+    # Mostrar indicador principal
+    col_riesgo_main, col_riesgo_details = st.columns([2, 1])
+    
+    with col_riesgo_main:
+        # Determinar color según riesgo
+        R_score = riesgo['R_0_10']
+        if R_score < 3:
+            color_riesgo = '#2ecc71'  # Verde
+            nivel = "Bajo"
+        elif R_score < 6:
+            color_riesgo = '#f39c12'  # Amarillo
+            nivel = "Moderado"
+        else:
+            color_riesgo = '#e74c3c'  # Rojo
+            nivel = "Alto"
+        
+        fig_riesgo, ax_riesgo = plt.subplots(figsize=(6, 4))
+        
+        # Gráfico de barras horizontal para riesgo
+        riesgos = ['Humedad', 'Temperatura', 'Conductividad']
+        valores_riesgo = [riesgo['H_risk'], riesgo['T_risk'], riesgo['EC_risk']]
+        colores = ['#3498db', '#e67e22', '#9b59b6']
+        
+        ax_riesgo.barh(riesgos, valores_riesgo, color=colores)
+        ax_riesgo.set_xlim(0, 1)
+        ax_riesgo.set_xlabel('Nivel de Riesgo')
+        ax_riesgo.set_title('Componentes de Riesgo de Bloqueo')
+        
+        for i, v in enumerate(valores_riesgo):
+            ax_riesgo.text(v + 0.02, i, f'{v:.2f}', va='center', fontweight='bold')
+        
+        plt.tight_layout()
+        st.pyplot(fig_riesgo)
+    
+    with col_riesgo_details:
+        st.metric("Riesgo General", f"{R_score}/10", delta=nivel)
+        st.markdown(f"""
+        **Detalles:**
+        - Humedad: {riesgo['H_risk']:.2f}
+        - Temperatura: {riesgo['T_risk']:.2f}
+        - Conductividad: {riesgo['EC_risk']:.2f}
+        """)
+else:
+    st.info("Datos insuficientes para calcular riesgo de bloqueo")
+
+# ===== RECOMENDACIONES DE CONDUCTIVIDAD =====
+st.subheader("💡 Recomendaciones de Conductividad Eléctrica")
+
+def clasificar_ce(ce):
+    if ce < 1.0:
+        return "Bajo"
+    elif ce < 2.5:
+        return "Medio"
+    elif ce < 4.0:
+        return "Alto"
+    else:
+        return "Muy alto"
+
+def recomendacion_ce(categoria):
+    recomendaciones = {
+        "Bajo": "Suelo sano. Mantén riegos normales.",
+        "Medio": "Acumulación leve. Aumenta ligeramente el riego y revisa fertilización.",
+        "Alto": "Riesgo de estrés. Aplica riegos largos y evita fertilizantes salinos.",
+        "Muy alto": "Salinidad peligrosa. Realiza lavado de sales y revisa calidad del agua."
+    }
+    return recomendaciones[categoria]
+
+def color_ce(categoria):
+    colores = {
+        "Bajo": '#2ecc71',      # Verde
+        "Medio": '#f39c12',     # Amarillo
+        "Alto": '#e67e22',      # Naranja
+        "Muy alto": '#e74c3c'   # Rojo
+    }
+    return colores[categoria]
+
+# Obtener CE actual
+df_ce = df[df["key"] == "soil_conductivity"]
+if not df_ce.empty:
+    ce_actual = float(df_ce.sort_values("fecha", ascending=False).iloc[0]["value"])
+    
+    # Clasificar
+    categoria_ce = clasificar_ce(ce_actual)
+    recom = recomendacion_ce(categoria_ce)
+    color = color_ce(categoria_ce)
+    
+    # Mostrar en columnas
+    col_ce_info, col_ce_visual = st.columns([1, 1])
+    
+    with col_ce_info:
+        st.metric("Conductividad Actual", f"{ce_actual:.2f} dS/m")
+        st.write(f"**Categoría:** {categoria_ce}")
+        st.info(f"📌 {recom}")
+    
+    with col_ce_visual:
+        # Gráfico de categorías
+        fig_ce, ax_ce = plt.subplots(figsize=(6, 4))
+        
+        categorias = ["Bajo\n(<1.0)", "Medio\n(1.0-2.5)", "Alto\n(2.5-4.0)", "Muy alto\n(>4.0)"]
+        valores_ref = [0.5, 1.75, 3.0, 4.5]
+        colores_cat = ['#2ecc71', '#f39c12', '#e67e22', '#e74c3c']
+        
+        barras = ax_ce.bar(categorias,
