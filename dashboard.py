@@ -291,7 +291,7 @@ if not df_battery.empty:
     device_id_to_name = {did: name for did, name in zip(device_ids, device_names)}
     df_battery["nombre_dispositivo"] = df_battery["device_id"].map(device_id_to_name)
     df_battery = df_battery.sort_values("battery", ascending=True)
-    df["battery"] = (df["battery"] * 100).round().astype(int)
+    df_battery["battery"] = (df_battery["battery"] * 100).round().astype(int)
 
 
     st.dataframe(
