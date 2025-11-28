@@ -521,4 +521,19 @@ if not df_ce.empty:
         valores_ref = [0.5, 1.75, 3.0, 4.5]
         colores_cat = ['#2ecc71', '#f39c12', '#e67e22', '#e74c3c']
         
-        barras = ax_ce.bar(categorias,
+        barras = ax_ce.bar(categorias, [1, 1, 1, 1], color=colores_cat, alpha=0.7, edgecolor='black', linewidth=2)
+        
+        # Marcar posición actual
+        ax_ce.axvline(x=ce_actual, color='blue', linestyle='--', linewidth=3, label=f'Actual: {ce_actual:.2f}')
+        
+        ax_ce.set_ylabel('Estado')
+        ax_ce.set_title('Clasificación de Conductividad Eléctrica')
+        ax_ce.set_ylim(0, 1.2)
+        ax_ce.legend()
+        ax_ce.set_yticks([])
+        
+        plt.tight_layout()
+        st.pyplot(fig_ce)
+        plt.close(fig_ce)
+else:
+    st.info("No hay datos de conductividad disponibles")
