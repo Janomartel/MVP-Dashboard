@@ -95,50 +95,128 @@ def get_last_battery(device_id, jwt_token, url_thingsboard):
         return None
         
 # ===== GRÁFICO DE BARRAS CON SEMÁFORO =====
-st.subheader("🎯 Estado de Sensores (0-1)")
+st.subheader("🎯 Estado de Sensores")
 
-# Función semáforo
-def color_semaforo(valor):
-    if valor <= 0.33:
-        return '#2ecc71'  # Verde
-    elif valor <= 0.66:
-        return '#f39c12'  # Amarillo
-    else:
-        return '#e74c3c'  # Rojo
-        
-# Preparar datos para gráfico
-keys_barra = []
-valores_barra = []
-colores_barra = []
+# Definir parámetros por tipo de sensor
+parametros = {
+    "humidity": {
+        "label": "Humedad Volumétrica del Suelo (VWC %)",
+        "unit": "%",
+        "verde": (25, 40),
+        "amarillo": [(18, 24), (41, 45)],
+        "rojo": [(0, 18), (45, 100)]
+    },
+    "temperature": {
+        "label": "Temperatura del Suelo",
+        "unit": "°C",
+        "verde": (18, 28),
+        "amarillo": [(12, 17), (29, 32)],
+        "rojo": [(0, 12), (32, 100)]
+    },
+    "soil_conductivity": {
+        "label": "Conductividad Eléctrica (CE aparente)",
+        "unit": "dS/m",
+        "verde": (0.2, 1.2),
+        "amarillo": [(1.3, 2.0)],
+        "rojo": [(2.0, 4.0), (4.0, 100)]
+    }
+}
 
-for key in df["key"].unique():
-    df_key = df[df["key"] == key]
-    if not df_key.empty:
-        valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
-        # Normalizar si es necesario (si el valor está fuera de 0-1)
-        valor_norm = min(max(valor / 100, 0), 1) if valor > 1 else valor
-        
-        keys_barra.append(key_mapping.get(key, key))
-        valores_barra.append(valor_norm)
-        colores_barra.append(color_semaforo(valor_norm))
+def determinar_estado(valor, key):
+    """Determina el estado y color basado en los parámetros"""
+    config = parametros.get(key, {})
+    
+    verde_min, verde_max = config.get("verde", (0, 0))
+    amarillo_ranges = config.get("amarillo", [])
+    rojo_ranges = config.get("rojo", [])
+    
+    if verde_min <= valor <= verde_max:
+        return "🟩 Óptimo", '#2ecc71'
+    
+    for min_val, max_val in amarillo_ranges:
+        if min_val <= valor <= max_val:
+            return "🟨 Precaución", '#f39c12'
+    
+    for min_val, max_val in rojo_ranges:
+        if min_val <= valor <= max_val:
+            return "🟥 Crítico", '#e74c3c'
+    
+    return "❓ Desconocido", '#95a5a6'
 
-# Crear gráfico de barras
-fig_barras, ax_barras = plt.subplots(figsize=(10, 4))
-complementos = [1 - v for v in valores_barra]
+col_left, col_right = st.columns(2)
 
-for i in range(len(keys_barra)):
-    ax_barras.barh(i, valores_barra[i], color=colores_barra[i], edgecolor='black', linewidth=1.5)
-    ax_barras.barh(i, complementos[i], left=valores_barra[i], color='lightgray', edgecolor='black', linewidth=1.5)
-    ax_barras.text(valores_barra[i] + 0.02, i, f"{valores_barra[i]:.2f}", 
-                   va='center', fontsize=10, fontweight='bold')
+# Lado izquierdo - Valores del dispositivo seleccionado
+with col_left:
+    st.write("**Valores Actuales:**")
+    for key in df["key"].unique():
+        df_key = df[df["key"] == key]
+        if not df_key.empty:
+            valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
+            label = parametros.get(key, {}).get("label", key)
+            unit = parametros.get(key, {}).get("unit", "")
+            st.metric(label, f"{valor:.2f} {unit}")
 
-ax_barras.set_yticks(range(len(keys_barra)))
-ax_barras.set_yticklabels(keys_barra)
-ax_barras.set_xlim(0, 1)
-ax_barras.set_xlabel("Valor")
-ax_barras.set_title("Estado de Sensores (Escala 0-1)")
-plt.tight_layout()
-st.pyplot(fig_barras)
+# Lado derecho - Círculos de color con semáforo
+with col_right:
+    st.write("**Estado:**")
+    
+    for key in df["key"].unique():
+        df_key = df[df["key"] == key]
+        if not df_key.empty:
+            valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
+            estado_text, color = determinar_estado(valor, key)
+            label = parametros.get(key, {}).get("label", key)
+            
+            # Crear gráfico circular
+            fig, ax = plt.subplots(figsize=(3, 3))
+            ax.pie([1], colors=[color], startangle=90)
+            ax.set_title(f"{label}\n{estado_text}", fontsize=9, fontweight='bold')
+            st.pyplot(fig)
+
+# ===== REGLAS DE REFERENCIA =====
+st.subheader("📋 Parámetros de Referencia")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.write("**Humedad Volumétrica (VWC %)**")
+    st.markdown("""
+    🟩 **Óptimo**: 25% – 40%
+    
+    🟨 **Precaución**:
+    - 18% – 24% (estrés hídrico)
+    - 41% – 45% (riesgo saturación)
+    
+    🟥 **Crítico**:
+    - < 18% (estrés severo)
+    - > 45% (exceso agua)
+    """)
+
+with col2:
+    st.write("**Temperatura del Suelo (°C)**")
+    st.markdown("""
+    🟩 **Óptimo**: 18°C – 28°C
+    
+    🟨 **Precaución**:
+    - 12°C – 17°C (frío)
+    - 29°C – 32°C (calor)
+    
+    🟥 **Crítico**:
+    - < 12°C (frío extremo)
+    - > 32°C (calor extremo)
+    """)
+
+with col3:
+    st.write("**Conductividad (dS/m)**")
+    st.markdown("""
+    🟩 **Óptimo**: 0.2 – 1.2 dS/m
+    
+    🟨 **Precaución**: 1.3 – 2.0 dS/m
+    
+    🟥 **Crítico**:
+    - 2.0 – 4.0 dS/m
+    - > 4.0 dS/m (muy alto)
+    """)
 
 # ===== MÉTRICAS HISTÓRICAS =====
 st.subheader("📊 Métricas Históricas")
