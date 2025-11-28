@@ -166,7 +166,7 @@ for idx, key in enumerate(df["key"].unique()):
         estado_text, color = determinar_estado(valor, key)
         
         with circles[idx]:
-            fig, ax = plt.subplots(figsize=(2.5, 2.5))
+            fig, ax = plt.subplots(figsize=(1, 1))
             ax.pie([1], colors=[color], startangle=90)
             ax.axis('off')
             ax.text(0, -1.3, estado_text, ha='center', fontsize=9, fontweight='bold')
@@ -253,7 +253,7 @@ for tab, key in zip(tabs, keys_list):
             st.info(f"No hay datos disponibles")
 
 # ===== HEATMAPS =====
-st.subheader("🔥 Heatmaps por Período del Día")
+st.subheader("🕒 Variación de metrica por periodo del día")
 
 # Crear tabs para cada métrica
 tabs = st.tabs(["Temperatura", "Humedad", "Conductividad"])
