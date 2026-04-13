@@ -3,8 +3,6 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import requests
-import asyncio
-import aiohttp
 from concurrent.futures import ThreadPoolExecutor
 from data_queries import init_connection, list_all_tenant_devices, get_device_data
 
