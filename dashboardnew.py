@@ -14,7 +14,7 @@ st.set_page_config(
 
 st.title("📊 Dashboard Permacultura Tech")
 
-TB_URL = "https://tb.permaculturatech.com"  # centralizado aquí
+TB_URL = st.secrets["TB_URL"]  # centralizado aquí
 
 # ===== CONSTANTES (fuera del flujo de render) =====
 KEY_MAPPING = {
