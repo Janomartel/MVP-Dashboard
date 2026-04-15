@@ -317,7 +317,7 @@ def get_all_devices_data(jwt_token: str, days_back: int = None) -> dict:
 
 # Función auxiliar para inicializar la conexión
 def init_connection():
-     """Inicializa la conexión con ThingsBoard."""
+    """Inicializa la conexión con ThingsBoard."""
     global _jwt_token, _refresh_token
     
     if not _jwt_token:
