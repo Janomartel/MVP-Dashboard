@@ -20,13 +20,14 @@ try:
 except Exception as e:
     st.error(f"Error de conexión a ThingsBoard: {e}")
     st.stop()
-    
+
 # ===== MAPEO DE NOMBRES =====
 key_mapping = {
-    "temperature": "Temperatura del suelo",
-    "humidity": "Contenido Volumétrico",
-    "soil_conductivity": "Conductividad aparente"
+    "soil_temperature": "Temperatura del suelo",
+    "soil_humidity": "Contenido Volumétrico",
+    "soil_ec": "Conductividad aparente"
 }
+
 # ===== SELECTOR DE DISPOSITIVO =====
 @st.cache_data(ttl=3600)
 def cargar_dispositivos():
@@ -40,7 +41,7 @@ selected_device = st.selectbox("📱 Selecciona un dispositivo", device_names)
 selected_id = device_ids[device_names.index(selected_device)]
 
 dias = 60  # Fijo a 60 días
-    
+
 # ===== CARGAR DATOS =====
 @st.cache_data(ttl=1800)
 def cargar_datos_dispositivo(device_id, days):
@@ -50,7 +51,7 @@ df = cargar_datos_dispositivo(selected_id, dias)
 
 if df.empty:
     st.warning("No hay datos disponibles para este dispositivo")
-    st.stop()   
+    st.stop()
 
 # ===== CARGAR DATOS DE TODOS LOS DISPOSITIVOS =====
 @st.cache_data(ttl=1800)
@@ -59,7 +60,8 @@ def cargar_datos_todos_dispositivos(device_ids, dias):
     for did in device_ids:
         try:
             df_device = get_device_data(did, jwt_token, days_back=dias)
-            all_data.append(df_device)
+            if not df_device.empty:
+                all_data.append(df_device)
         except:
             continue
     return pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
@@ -96,39 +98,36 @@ def get_last_battery(device_id, jwt_token, url_thingsboard):
     try:
         r = requests.get(url, headers=headers)
         data = r.json()
-        
+
         if "battery" not in data:
             return None
-        
+
         entry = data["battery"][0]
         ts = pd.to_datetime(entry["ts"], unit="ms")
         value = float(entry["value"])
-        
+
         return {"device_id": device_id, "timestamp": ts, "battery": value}
     except Exception as e:
         st.warning(f"Error al obtener batería: {e}")
         return None
-        
-# ===== GRÁFICO DE BARRAS CON SEMÁFORO =====
-st.subheader("🎯 Estado de Sensores")
 
-# Definir parámetros por tipo de sensor
+# ===== PARÁMETROS POR TIPO DE SENSOR =====
 parametros = {
-    "humidity": {
+    "soil_humidity": {
         "label": "Humedad Volumétrica del Suelo (VWC %)",
         "unit": "%",
         "verde": (25, 40),
         "amarillo": [(18, 24), (41, 45)],
         "rojo": [(0, 18), (45, 100)]
     },
-    "temperature": {
+    "soil_temperature": {
         "label": "Temperatura del Suelo",
         "unit": "°C",
         "verde": (18, 28),
         "amarillo": [(12, 17), (29, 32)],
         "rojo": [(0, 12), (32, 100)]
     },
-    "soil_conductivity": {
+    "soil_ec": {
         "label": "Conductividad Eléctrica (CE aparente)",
         "unit": "dS/m",
         "verde": (0.2, 1.2),
@@ -137,43 +136,43 @@ parametros = {
     }
 }
 
+# ===== GRÁFICO DE BARRAS CON SEMÁFORO =====
+st.subheader("🎯 Estado de Sensores")
+
 def determinar_estado(valor, key):
     """Determina el estado y color basado en los parámetros"""
     config = parametros.get(key, {})
-    
+
     verde_min, verde_max = config.get("verde", (0, 0))
     amarillo_ranges = config.get("amarillo", [])
     rojo_ranges = config.get("rojo", [])
-    
+
     if verde_min <= valor <= verde_max:
         return "Óptimo", '#2ecc71'
-    
+
     for min_val, max_val in amarillo_ranges:
         if min_val <= valor <= max_val:
             return "Precaución", '#f39c12'
-    
+
     for min_val, max_val in rojo_ranges:
         if min_val <= valor <= max_val:
             return "Crítico", '#e74c3c'
-    
-    return "❓ Desconocido", '#95a5a6'
+
+    return "Desconocido", '#95a5a6'
+
 def clamp(x, a=0.0, b=1.0):
     return max(a, min(b, x))
 
 def riesgo_bloqueo(hum, temp, ec,
                    w_h=0.35, w_t=0.15, w_e=0.50,
                    t_low=15, t_high=25):
-    # Humedad (%)
-    H_risk = (100.0 - hum) / 100.0
-    H_risk = clamp(H_risk)
-    # Temperatura
+    H_risk = clamp((100.0 - hum) / 100.0)
     if t_low <= temp <= t_high:
         T_risk = 0.0
     elif temp > t_high:
         T_risk = clamp((temp - t_high) / 15.0)
     else:
         T_risk = clamp((t_low - temp) / 15.0)
-    # Conductividad (dS/m)
     EC_risk = clamp((ec - 1.0) / (4.0 - 1.0))
     R_raw = w_h * H_risk + w_t * T_risk + w_e * EC_risk
     R = round(R_raw * 10.0, 1)
@@ -184,7 +183,7 @@ def riesgo_bloqueo(hum, temp, ec,
         'R_raw': R_raw,
         'R_0_10': R
     }
-                       
+
 st.write("**Valores:**")
 value_cols = st.columns(3)
 for idx, key in enumerate(df["key"].unique()):
@@ -193,7 +192,7 @@ for idx, key in enumerate(df["key"].unique()):
         valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
         unit = parametros.get(key, {}).get("unit", "")
         label = parametros.get(key, {}).get("label", key).split("(")[0].strip()
-        
+
         with value_cols[idx]:
             st.metric(label, f"{valor:.2f} {unit}")
 
@@ -206,7 +205,7 @@ for idx, key in enumerate(df["key"].unique()):
     if not df_key.empty:
         valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
         estado_text, color = determinar_estado(valor, key)
-        
+
         with circles[idx]:
             fig, ax = plt.subplots(figsize=(1, 1))
             ax.pie([1], colors=[color], startangle=90)
@@ -265,24 +264,23 @@ st.subheader("📊 Métricas Históricas")
 
 df_sorted = df.sort_values("fecha")
 
-# Crear tabs para cada métrica
 tabs = st.tabs(["Temperatura", "Humedad", "Conductividad"])
 
 historico_config = {
-    "temperature": ("temperature", "Temperatura Histórica", "°C", "tomato"),
-    "humidity": ("humidity", "Humedad Histórica", "Valor", "steelblue"),
-    "soil_conductivity": ("soil_conductivity", "Conductividad Histórica", "Valor", "green")
+    "soil_temperature": ("soil_temperature", "Temperatura Histórica", "°C", "tomato"),
+    "soil_humidity": ("soil_humidity", "Humedad Histórica", "VWC %", "steelblue"),
+    "soil_ec": ("soil_ec", "Conductividad Histórica", "dS/m", "green")
 }
 
-keys_list = ["temperature", "humidity", "soil_conductivity"]
+keys_list = ["soil_temperature", "soil_humidity", "soil_ec"]
 
 for tab, key in zip(tabs, keys_list):
     with tab:
         df_key = df_sorted[df_sorted["key"] == key]
-        
+
         if not df_key.empty:
             _, title, ylabel, color = historico_config[key]
-            
+
             fig, ax = plt.subplots(figsize=(12, 5))
             ax.plot(df_key["fecha"], df_key["value"], color=color, linewidth=2)
             ax.set_title(title)
@@ -291,45 +289,45 @@ for tab, key in zip(tabs, keys_list):
             plt.xticks(rotation=45)
             plt.tight_layout()
             st.pyplot(fig)
+            plt.close(fig)
         else:
             st.info(f"No hay datos disponibles")
 
 # ===== HEATMAPS =====
-st.subheader("🕒 Variación de metrica por periodo del día")
+st.subheader("🕒 Variación de métrica por periodo del día")
 
-# Crear tabs para cada métrica
 tabs = st.tabs(["Temperatura", "Humedad", "Conductividad"])
 
 heatmap_config = {
-    "temperature": ("Temperatura del suelo", "coolwarm"),
-    "humidity": ("Contenido Volumétrico", "mako"),
-    "soil_conductivity": ("Conductividad aparente", "rocket_r")
+    "soil_temperature": ("Temperatura del suelo", "coolwarm"),
+    "soil_humidity": ("Contenido Volumétrico", "mako"),
+    "soil_ec": ("Conductividad aparente", "rocket_r")
 }
 
-keys_list = ["temperature", "humidity", "soil_conductivity"]
+keys_list = ["soil_temperature", "soil_humidity", "soil_ec"]
 
 for tab, key in zip(tabs, keys_list):
     with tab:
         df_key = df[df["key"] == key]
-        
+
         if not df_key.empty:
             df_agg = df_key.groupby(["Fecha", "Periodo_Dia"])["value"].mean().reset_index()
             pivot = df_agg.pivot(index="Periodo_Dia", columns="Fecha", values="value")
-            
+
             label, cmap = heatmap_config[key]
-            
+
             fig_heat, ax_heat = plt.subplots(figsize=(14, 4))
             sns.heatmap(pivot, annot=True, cmap=cmap, ax=ax_heat, cbar_kws={'label': 'Valor'})
             ax_heat.set_title(f"Heatmap de {label} por Período del Día")
             plt.tight_layout()
             st.pyplot(fig_heat)
+            plt.close(fig_heat)
         else:
             st.info(f"No hay datos disponibles para {heatmap_config[key][0]}")
 
 # ===== TABLA DE DATOS =====
 st.subheader("📋 Datos Detallados")
 
-# Selector de fechas
 fechas_disponibles = sorted(df["Fecha"].unique(), reverse=True)
 selected_date = st.selectbox(
     "Seleccione una fecha:",
@@ -337,17 +335,15 @@ selected_date = st.selectbox(
     format_func=lambda x: x.strftime("%d-%m-%Y")
 )
 
-# Mostrar DataFrame filtrado
 df_filtered = df[df["Fecha"] == selected_date][["fecha", "key", "value"]].sort_values("fecha")
 st.dataframe(df_filtered, use_container_width=True)
 
 # ===== SECCIÓN DE BATERÍA =====
 st.subheader("🔋 Estado de Batería de Dispositivos")
 
-# Obtener datos de batería para todos los dispositivos
 @st.cache_data(ttl=1800)
 def cargar_bateria_dispositivos(device_ids, jwt_token):
-    url_thingsboard = "https://tb.permaculturatech.com"  # Ajusta según tu URL
+    url_thingsboard = st.secrets.get("THINGSBOARD_HOST", "https://tb.permaculturatech.com")
     resultados = []
     for did in device_ids:
         info = get_last_battery(did, jwt_token, url_thingsboard)
@@ -358,10 +354,9 @@ def cargar_bateria_dispositivos(device_ids, jwt_token):
 df_battery = cargar_bateria_dispositivos(device_ids, jwt_token)
 
 if not df_battery.empty:
-    # Procesar datos de batería
     now = pd.Timestamp.now()
     df_battery["diff"] = now - df_battery["timestamp"]
-    
+
     def asignar_color(td):
         if td >= pd.Timedelta(days=1):
             return "red"
@@ -371,14 +366,13 @@ if not df_battery.empty:
             return "yellow"
         else:
             return "green"
-    
+
     df_battery["color"] = df_battery["diff"].apply(asignar_color)
     df_battery["Porcentaje de bateria"] = df_battery["battery"] * 100
-    
-    # Crear gráfico de swarmplot
+
     fig_battery, ax_battery = plt.subplots(figsize=(12, 5))
     sns.swarmplot(
-        data=df_battery, 
+        data=df_battery,
         x="Porcentaje de bateria",
         hue="color",
         palette={
@@ -394,19 +388,17 @@ if not df_battery.empty:
     ax_battery.set_xlabel("Porcentaje de Batería (%)")
     plt.tight_layout()
     st.pyplot(fig_battery)
-    
-    # Tabla de batería
-    # Mapear device_ids a nombres
+    plt.close(fig_battery)
+
     device_id_to_name = {did: name for did, name in zip(device_ids, device_names)}
     df_battery["nombre_dispositivo"] = df_battery["device_id"].map(device_id_to_name)
     df_battery = df_battery.sort_values("battery", ascending=True)
     df_battery["battery"] = (df_battery["battery"] * 100).round()
 
-
     st.dataframe(
         df_battery[["nombre_dispositivo", "battery", "timestamp"]].rename(columns={
             "nombre_dispositivo": "Dispositivo",
-            "battery": "Batería",
+            "battery": "Batería (%)",
             "timestamp": "Última actualización"
         }),
         use_container_width=True
@@ -418,64 +410,59 @@ else:
 st.subheader("⚠️ Índice de Riesgo de Bloqueo Nutricional")
 
 if not df_all.empty:
-    # Obtener valores PROMEDIO de todos los dispositivos
     valores_promedio = {}
     for key in df_all["key"].unique():
         df_key = df_all[df_all["key"] == key]
         if not df_key.empty:
             valor = float(df_key["value"].mean())
             valores_promedio[key] = valor
-    
-    # Calcular riesgo con promedios
-    if "humidity" in valores_promedio and "temperature" in valores_promedio and "soil_conductivity" in valores_promedio:
+
+    if "soil_humidity" in valores_promedio and "soil_temperature" in valores_promedio and "soil_ec" in valores_promedio:
         riesgo = riesgo_bloqueo(
-            hum=valores_promedio["humidity"],
-            temp=valores_promedio["temperature"],
-            ec=valores_promedio["soil_conductivity"]
+            hum=valores_promedio["soil_humidity"],
+            temp=valores_promedio["soil_temperature"],
+            ec=valores_promedio["soil_ec"]
         )
-        
-        # Mostrar indicador principal
+
         col_riesgo_main, col_riesgo_details = st.columns([2, 1])
-        
+
         with col_riesgo_main:
-            # Determinar color según riesgo
             R_score = riesgo['R_0_10']
             if R_score < 3:
-                color_riesgo = '#2ecc71'  # Verde
+                color_riesgo = '#2ecc71'
                 nivel = "🟩 Bajo"
             elif R_score < 6:
-                color_riesgo = '#f39c12'  # Amarillo
+                color_riesgo = '#f39c12'
                 nivel = "🟨 Moderado"
             else:
-                color_riesgo = '#e74c3c'  # Rojo
+                color_riesgo = '#e74c3c'
                 nivel = "🟥 Alto"
-            
+
             fig_riesgo, ax_riesgo = plt.subplots(figsize=(6, 4))
-            
-            # Gráfico de barras horizontal para riesgo
+
             riesgos = ['Humedad', 'Temperatura', 'Conductividad']
             valores_riesgo = [riesgo['H_risk'], riesgo['T_risk'], riesgo['EC_risk']]
             colores = ['#3498db', '#e67e22', '#9b59b6']
-            
+
             ax_riesgo.barh(riesgos, valores_riesgo, color=colores)
             ax_riesgo.set_xlim(0, 1)
             ax_riesgo.set_xlabel('Nivel de Riesgo')
             ax_riesgo.set_title('Componentes de Riesgo de Bloqueo')
-            
+
             for i, v in enumerate(valores_riesgo):
                 ax_riesgo.text(v + 0.02, i, f'{v:.2f}', va='center', fontweight='bold')
-            
+
             plt.tight_layout()
             st.pyplot(fig_riesgo)
             plt.close(fig_riesgo)
-        
+
         with col_riesgo_details:
             st.metric("Riesgo General", f"{R_score}/10", delta=nivel)
             st.markdown(f"""
             **Detalles (Promedio):**
-            - Humedad: {valores_promedio['humidity']:.2f}%
-            - Temperatura: {valores_promedio['temperature']:.2f}°C
-            - Conductividad: {valores_promedio['soil_conductivity']:.2f} dS/m
+            - Humedad: {valores_promedio['soil_humidity']:.2f}%
+            - Temperatura: {valores_promedio['soil_temperature']:.2f}°C
+            - Conductividad: {valores_promedio['soil_ec']:.2f} dS/m
             """)
     else:
         st.info("Datos insuficientes para calcular riesgo de bloqueo")
@@ -506,53 +493,48 @@ def recomendacion_ce(categoria):
 
 def color_ce(categoria):
     colores = {
-        "Bajo": '#2ecc71',      # Verde
-        "Medio": '#f39c12',     # Amarillo
-        "Alto": '#e67e22',      # Naranja
-        "Muy alto": '#e74c3c'   # Rojo
+        "Bajo": '#2ecc71',
+        "Medio": '#f39c12',
+        "Alto": '#e67e22',
+        "Muy alto": '#e74c3c'
     }
     return colores[categoria]
 
 # Obtener CE promedio de TODOS los dispositivos
-df_ce = df_all[df_all["key"] == "soil_conductivity"]
+df_ce = df_all[df_all["key"] == "soil_ec"] if not df_all.empty else pd.DataFrame()
+
 if not df_ce.empty:
     ce_actual = float(df_ce["value"].mean())
-    # Clasificar
     categoria_ce = clasificar_ce(ce_actual)
     recom = recomendacion_ce(categoria_ce)
     color = color_ce(categoria_ce)
-    
-    # Mostrar en columnas
+
     col_ce_info, col_ce_visual = st.columns([1, 1])
-    
+
     with col_ce_info:
         st.metric("Conductividad Actual", f"{ce_actual:.2f} dS/m")
         st.write(f"**Categoría:** {categoria_ce}")
         st.info(f"📌 {recom}")
-    
+
     with col_ce_visual:
-        # Gráfico de categorías
         fig_ce, ax_ce = plt.subplots(figsize=(6, 4))
-        
-        # Definir rangos reales
+
         rangos = [(0, 1.0), (1.0, 2.5), (2.5, 4.0), (4.0, 5.0)]
         categorias = ["Bajo\n(<1.0)", "Medio\n(1.0-2.5)", "Alto\n(2.5-4.0)", "Muy alto\n(>4.0)"]
         colores_cat = ['#2ecc71', '#f39c12', '#e67e22', '#e74c3c']
-        
-        # Dibujar barras con ancho proporcional
+
         for i, (start, end) in enumerate(rangos):
-            ax_ce.barh(0, end - start, left=start, height=0.5, color=colores_cat[i], 
+            ax_ce.barh(0, end - start, left=start, height=0.5, color=colores_cat[i],
                        edgecolor='black', linewidth=2, label=categorias[i])
-        
-        # Marcar posición actual
+
         ax_ce.axvline(x=ce_actual, color='blue', linestyle='--', linewidth=3, label=f'Actual: {ce_actual:.2f}')
-        
+
         ax_ce.set_xlim(0, 5)
         ax_ce.set_xlabel('Conductividad (dS/m)')
         ax_ce.set_title('Clasificación de Conductividad Eléctrica')
         ax_ce.set_yticks([])
         ax_ce.legend(loc='upper right')
-        
+
         plt.tight_layout()
         st.pyplot(fig_ce)
         plt.close(fig_ce)
