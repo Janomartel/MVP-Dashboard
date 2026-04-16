@@ -14,7 +14,7 @@ logging.basicConfig(
 TB_URL = st.secrets["THINGSBOARD_HOST"]
 TB_USERNAME = st.secrets["THINGSBOARD_USERNAME"]
 TB_PASSWORD = st.secrets["THINGSBOARD_PASSWORD"]
-TB_KEYS = st.secrets.get("TB_KEYS", "temperature,humidity,soil_conductivity")
+TB_KEYS = st.secrets.get("TB_KEYS", "soil_temperature,soil_humidity,soil_ec")
 TB_LIMIT = st.secrets.get("TB_LIMIT", "500")
 TB_DAYS_BACK = int(st.secrets.get("TB_DAYS_BACK", "60"))
 
