@@ -93,22 +93,31 @@ df["Periodo_Dia"] = pd.Categorical(
 
 # ===== FUNCIÓN PARA OBTENER BATERÍA =====
 def get_last_battery(device_id, jwt_token, url_thingsboard):
-    url = f"{url_thingsboard}/api/plugins/telemetry/DEVICE/{device_id}/values/timeseries?keys=battery&limit=1"
+    url = f"{url_thingsboard}/api/plugins/telemetry/DEVICE/{device_id}/values/timeseries?keys=battery_level&limit=1"
     headers = {"X-Authorization": f"Bearer {jwt_token}"}
     try:
         r = requests.get(url, headers=headers)
         data = r.json()
 
-        if "battery" not in data:
+        # Verificar que exista la key 'battery_level' y tenga datos
+        if "battery_level" not in data or not data["battery_level"]:
             return None
 
-        entry = data["battery"][0]
+        entry = data["battery_level"][0]
+        
+        # Verificar que el valor no sea None
+        if entry.get("value") is None:
+            return None
+            
         ts = pd.to_datetime(entry["ts"], unit="ms")
         value = float(entry["value"])
-
+        
+        # El valor ya viene en porcentaje (0-100), no necesita conversión
         return {"device_id": device_id, "timestamp": ts, "battery": value}
     except Exception as e:
-        st.warning(f"Error al obtener batería: {e}")
+        # Solo loggear en el servidor, no mostrar warning al usuario
+        import logging
+        logging.warning(f"No se pudo obtener batería para {device_id}: {e}")
         return None
 
 # ===== PARÁMETROS POR TIPO DE SENSOR =====
@@ -368,7 +377,8 @@ if not df_battery.empty:
             return "green"
 
     df_battery["color"] = df_battery["diff"].apply(asignar_color)
-    df_battery["Porcentaje de bateria"] = df_battery["battery"] * 100
+    # Ya viene en porcentaje, no multiplicar por 100
+    df_battery["Porcentaje de bateria"] = df_battery["battery"]
 
     fig_battery, ax_battery = plt.subplots(figsize=(12, 5))
     sns.swarmplot(
@@ -393,12 +403,13 @@ if not df_battery.empty:
     device_id_to_name = {did: name for did, name in zip(device_ids, device_names)}
     df_battery["nombre_dispositivo"] = df_battery["device_id"].map(device_id_to_name)
     df_battery = df_battery.sort_values("battery", ascending=True)
-    df_battery["battery"] = (df_battery["battery"] * 100).round()
+    # Ya está en porcentaje, solo redondear
+    df_battery["battery_display"] = df_battery["battery"].round()
 
     st.dataframe(
-        df_battery[["nombre_dispositivo", "battery", "timestamp"]].rename(columns={
+        df_battery[["nombre_dispositivo", "battery_display", "timestamp"]].rename(columns={
             "nombre_dispositivo": "Dispositivo",
-            "battery": "Batería (%)",
+            "battery_display": "Batería (%)",
             "timestamp": "Última actualización"
         }),
         use_container_width=True
