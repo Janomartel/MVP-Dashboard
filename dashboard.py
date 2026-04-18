@@ -14,6 +14,18 @@ st.set_page_config(
 
 st.title("📊 Dashboard Permacultura Tech")
 
+# Botón de actualización con timestamp
+col_title, col_time, col_refresh = st.columns([5, 2, 1])
+
+with col_time:
+    now = pd.Timestamp.now()
+    st.caption(f"🕐 Última actualización: {now.strftime('%H:%M:%S')}")
+
+with col_refresh:
+    if st.button("🔄 Actualizar", width="stretch", type="primary"):
+        st.cache_data.clear()
+        st.rerun()
+
 # ===== INICIALIZAR CONEXIÓN =====
 try:
     jwt_token, refresh_token = init_connection()
@@ -43,7 +55,7 @@ selected_id = device_ids[device_names.index(selected_device)]
 dias = 60  # Fijo a 60 días
 
 # ===== CARGAR DATOS =====
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=300)  # 5 minutos
 def cargar_datos_dispositivo(device_id, days):
     return get_device_data(device_id, jwt_token, days_back=days)
 
@@ -54,7 +66,7 @@ if df.empty:
     st.stop()
 
 # ===== CARGAR DATOS DE TODOS LOS DISPOSITIVOS =====
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=300)  # 5 minutos
 def cargar_datos_todos_dispositivos(device_ids, dias):
     all_data = []
     for did in device_ids:
@@ -345,12 +357,12 @@ selected_date = st.selectbox(
 )
 
 df_filtered = df[df["Fecha"] == selected_date][["fecha", "key", "value"]].sort_values("fecha")
-st.dataframe(df_filtered, use_container_width=True)
+st.dataframe(df_filtered, width="stretch")
 
 # ===== SECCIÓN DE BATERÍA =====
 st.subheader("🔋 Estado de Batería de Dispositivos")
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=300)  # 5 minutos
 def cargar_bateria_dispositivos(device_ids, jwt_token):
     url_thingsboard = st.secrets.get("THINGSBOARD_HOST", "https://tb.permaculturatech.com")
     resultados = []
@@ -412,7 +424,7 @@ if not df_battery.empty:
             "battery_display": "Batería (%)",
             "timestamp": "Última actualización"
         }),
-        use_container_width=True
+        width="stretch"
     )
 else:
     st.info("No hay datos de batería disponibles")
