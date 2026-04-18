@@ -14,18 +14,6 @@ st.set_page_config(
 
 st.title("📊 Dashboard Permacultura Tech")
 
-# Botón de actualización con timestamp
-col_title, col_time, col_refresh = st.columns([5, 2, 1])
-
-with col_time:
-    now = pd.Timestamp.now()
-    st.caption(f"🕐 Última actualización: {now.strftime('%H:%M:%S')}")
-
-with col_refresh:
-    if st.button("🔄 Actualizar", width="stretch", type="primary"):
-        st.cache_data.clear()
-        st.rerun()
-
 # ===== INICIALIZAR CONEXIÓN =====
 try:
     jwt_token, refresh_token = init_connection()
@@ -55,9 +43,14 @@ selected_id = device_ids[device_names.index(selected_device)]
 dias = 60  # Fijo a 60 días
 
 # ===== CARGAR DATOS =====
-@st.cache_data(ttl=300)  # 5 minutos
+@st.cache_data(ttl=300)  # 5 minutos - para gráficos históricos
 def cargar_datos_dispositivo(device_id, days):
     return get_device_data(device_id, jwt_token, days_back=days)
+
+# Función SIN caché para valores actuales (botón de actualizar)
+def cargar_datos_actuales(device_id):
+    """Obtiene solo los últimos valores sin caché"""
+    return get_device_data(device_id, jwt_token, days_back=1)  # Solo último día
 
 df = cargar_datos_dispositivo(selected_id, dias)
 
@@ -160,6 +153,16 @@ parametros = {
 # ===== GRÁFICO DE BARRAS CON SEMÁFORO =====
 st.subheader("🎯 Estado de Sensores")
 
+# Inicializar session state para el refresh
+if 'refresh_sensores' not in st.session_state:
+    st.session_state.refresh_sensores = False
+
+# Botón de actualización solo para esta sección
+col_space, col_btn = st.columns([6, 1])
+with col_btn:
+    if st.button("🔄 Actualizar", width="stretch", type="primary", key="refresh_sensors"):
+        st.session_state.refresh_sensores = True
+
 def determinar_estado(valor, key):
     """Determina el estado y color basado en los parámetros"""
     config = parametros.get(key, {})
@@ -205,35 +208,46 @@ def riesgo_bloqueo(hum, temp, ec,
         'R_0_10': R
     }
 
-st.write("**Valores:**")
-value_cols = st.columns(3)
-for idx, key in enumerate(df["key"].unique()):
-    df_key = df[df["key"] == key]
-    if not df_key.empty:
-        valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
-        unit = parametros.get(key, {}).get("unit", "")
-        label = parametros.get(key, {}).get("label", key).split("(")[0].strip()
+# Cargar datos: usar datos actuales si se presionó refresh, sino usar caché
+if st.session_state.refresh_sensores:
+    df_sensores = cargar_datos_actuales(selected_id)
+    st.session_state.refresh_sensores = False  # Reset flag
+    st.success("✅ Sensores actualizados")
+else:
+    df_sensores = df
 
-        with value_cols[idx]:
-            st.metric(label, f"{valor:.2f} {unit}")
+if df_sensores.empty:
+    st.warning("No hay datos disponibles para los sensores")
+else:
+    st.write("**Valores:**")
+    value_cols = st.columns(3)
+    for idx, key in enumerate(df_sensores["key"].unique()):
+        df_key = df_sensores[df_sensores["key"] == key]
+        if not df_key.empty:
+            valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
+            unit = parametros.get(key, {}).get("unit", "")
+            label = parametros.get(key, {}).get("label", key).split("(")[0].strip()
 
-# Mostrar gráficos en línea
-st.write("**Indicadores:**")
-circles = st.columns(3)
+            with value_cols[idx]:
+                st.metric(label, f"{valor:.2f} {unit}")
 
-for idx, key in enumerate(df["key"].unique()):
-    df_key = df[df["key"] == key]
-    if not df_key.empty:
-        valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
-        estado_text, color = determinar_estado(valor, key)
+    # Mostrar gráficos en línea
+    st.write("**Indicadores:**")
+    circles = st.columns(3)
 
-        with circles[idx]:
-            fig, ax = plt.subplots(figsize=(1, 1))
-            ax.pie([1], colors=[color], startangle=90)
-            ax.axis('off')
-            ax.text(0, -1.3, estado_text, ha='center', fontsize=9, fontweight='bold')
-            st.pyplot(fig)
-            plt.close(fig)
+    for idx, key in enumerate(df_sensores["key"].unique()):
+        df_key = df_sensores[df_sensores["key"] == key]
+        if not df_key.empty:
+            valor = float(df_key.sort_values("fecha", ascending=False).iloc[0]["value"])
+            estado_text, color = determinar_estado(valor, key)
+
+            with circles[idx]:
+                fig, ax = plt.subplots(figsize=(1, 1))
+                ax.pie([1], colors=[color], startangle=90)
+                ax.axis('off')
+                ax.text(0, -1.3, estado_text, ha='center', fontsize=9, fontweight='bold')
+                st.pyplot(fig)
+                plt.close(fig)
 
 # ===== REGLAS DE REFERENCIA =====
 st.subheader("📋 Parámetros de Referencia")
